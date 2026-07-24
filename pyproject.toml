@@ -1,0 +1,26 @@
+[project]
+name = "subhunter"
+version = "1.0.0"
+description = "Descarga subtitulos para peliculas y series automaticamente"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Luis Miguel Lagos Xenes"},
+]
+requires-python = ">=3.10"
+dependencies = [
+    "customtkinter>=5.2.0",
+    "subliminal>=2.7.0",
+    "babelfish>=0.6.0",
+]
+
+[project.scripts]
+subhunter = "subhunter.app:main"
+
+[project.urls]
+Homepage = "https://github.com/Hyzokaaa/SubHunter"
+Issues = "https://github.com/Hyzokaaa/SubHunter/issues"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
