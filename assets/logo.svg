@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="180" ry="180" fill="#0a0a0f"/>
+
+  <!-- Outer broken arcs -->
+  <g fill="none" stroke="#d4a54a" stroke-width="26" stroke-linecap="round">
+    <path d="M 622,142 A 380,380 0 0,1 882,402"/>
+    <path d="M 882,622 A 380,380 0 0,1 622,882"/>
+    <path d="M 402,882 A 380,380 0 0,1 142,622"/>
+    <path d="M 142,402 A 380,380 0 0,1 402,142"/>
+  </g>
+
+  <!-- Inner circle (smaller) -->
+  <circle cx="512" cy="512" r="115" fill="none" stroke="#8a6d2e" stroke-width="8"/>
+
+  <!-- Crosshair lines -->
+  <g stroke="#d4a54a" stroke-width="24" stroke-linecap="round">
+    <line x1="512" y1="72"  x2="512" y2="350"/>
+    <line x1="512" y1="674" x2="512" y2="952"/>
+    <line x1="72"  y1="512" x2="350" y2="512"/>
+    <line x1="674" y1="512" x2="952" y2="512"/>
+  </g>
+
+  <!-- Inner cross stubs -->
+  <g stroke="#8a6d2e" stroke-width="12" stroke-linecap="round">
+    <line x1="512" y1="380" x2="512" y2="460"/>
+    <line x1="512" y1="564" x2="512" y2="644"/>
+    <line x1="380" y1="512" x2="460" y2="512"/>
+    <line x1="564" y1="512" x2="644" y2="512"/>
+  </g>
+
+  <!-- Center dot -->
+  <circle cx="512" cy="512" r="14" fill="#f0c960"/>
+  <circle cx="512" cy="512" r="6"  fill="#ffffff"/>
+</svg>
