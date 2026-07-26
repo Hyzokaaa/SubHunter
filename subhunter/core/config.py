@@ -12,7 +12,9 @@ DEFAULTS = {
     "providers": {
         "opensubtitlescom": True,
         "opensubtitles": True,
+        "subtitulamos": True,
         "addic7ed": True,
+        "gestdown": True,
         "podnapisi": True,
         "tvsubtitles": True,
     },
@@ -23,7 +25,9 @@ DEFAULTS = {
 PROVIDER_LABELS = {
     "opensubtitlescom": "OpenSubtitles.com (nuevo)",
     "opensubtitles": "OpenSubtitles.org (clasico)",
+    "subtitulamos": "Subtitulamos.tv",
     "addic7ed": "Addic7ed",
+    "gestdown": "Gestdown",
     "podnapisi": "Podnapisi",
     "tvsubtitles": "TVSubtitles",
 }

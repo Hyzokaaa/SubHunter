@@ -15,13 +15,18 @@ class VideoList(ctk.CTkFrame):
         self.rows: list[VideoRow] = []
 
         self._on_download_selected = None
+        self._on_find_alternative = None
         self._on_list_changed = None
+        self._alt_indices = {}  # track alternative index per filepath
 
         self._build(theme)
         self._build_context_menu(theme)
 
     def on_download_selected(self, cb):
         self._on_download_selected = cb
+
+    def on_find_alternative(self, cb):
+        self._on_find_alternative = cb
 
     def on_list_changed(self, cb):
         self._on_list_changed = cb
@@ -94,6 +99,7 @@ class VideoList(ctk.CTkFrame):
     def _build_context_menu(self, t: Theme):
         self._ctx = ContextMenu(self, t)
         self._ctx.add_action("Descargar seleccionados", self._ctx_download)
+        self._ctx.add_action("Buscar alternativa (seleccionados)", self._ctx_alternative)
         self._ctx.add_action("---", None)
         self._ctx.add_action("Seleccionar todos", self._select_all)
         self._ctx.add_action("Deseleccionar todos", self._select_none)
@@ -109,6 +115,18 @@ class VideoList(ctk.CTkFrame):
     def _ctx_download(self):
         if self._on_download_selected:
             self._on_download_selected()
+
+    def _ctx_alternative(self):
+        if self._on_find_alternative:
+            selected = [r.filepath for r in self.rows if r.check_var.get()]
+            for fp in selected:
+                # Increment the alternative index for each file
+                idx = self._alt_indices.get(fp, 0) + 1
+                self._alt_indices[fp] = idx
+                self._on_find_alternative(fp, idx)
+
+    def reset_alt_index(self, filepath):
+        self._alt_indices.pop(filepath, None)
 
     def _invert_selection(self):
         for r in self.rows:

@@ -127,6 +127,7 @@ class SubHunterApp(ctk.CTk):
         self.video_list = VideoList(self, t)
         self.video_list.pack(fill="both", expand=True, padx=pad, pady=(8, 0))
         self.video_list.on_download_selected(self._start_download)
+        self.video_list.on_find_alternative(self._find_alternative)
         self.video_list.on_list_changed(self._on_list_changed)
 
         # --- Progress ---
@@ -218,17 +219,27 @@ class SubHunterApp(ctk.CTk):
 
         t = self.theme
 
-        def on_status(path, status):
+        def on_status(path, status, *args):
             row = self.video_list.get_row_by_path(path)
             if not row:
                 return
-            status_map = {
-                "searching":  ("Buscando...", t.amber),
-                "downloaded": ("Descargado", t.green),
-                "not_found":  ("No encontrado", t.red),
-                "error":      ("Error", t.red),
-            }
-            text, color = status_map.get(status, ("?", t.text_dim))
+            if status == "downloaded":
+                provider = args[0] if args else "?"
+                text, color = f"OK ({provider})", t.green
+            elif status == "alternative":
+                provider = args[0] if args else "?"
+                idx = args[1] if len(args) > 1 else "?"
+                total = args[2] if len(args) > 2 else "?"
+                text, color = f"Alt {idx}/{total} ({provider})", t.green
+            elif status == "no_more":
+                text, color = "Sin mas opciones", t.red
+            else:
+                status_map = {
+                    "searching":  ("Buscando...", t.amber),
+                    "not_found":  ("No encontrado", t.red),
+                    "error":      ("Error", t.red),
+                }
+                text, color = status_map.get(status, ("?", t.text_dim))
             self.after(0, lambda: row.set_status(text, color))
 
         def on_progress(p):
@@ -253,6 +264,64 @@ class SubHunterApp(ctk.CTk):
         self.status_bar.set_text(
             f"Completado  --  {downloaded} descargados  /  {failed} no encontrados"
         )
+
+    def _find_alternative(self, filepath, skip_index):
+        """Search for an alternative subtitle for a specific file."""
+        if self.is_downloading:
+            return
+
+        self.is_downloading = True
+        self.toolbar.set_downloading(True)
+
+        active_langs = self.config.get("languages", ["Espanol"])
+        toolbar_lang = self.toolbar.lang_var.get()
+        if toolbar_lang not in active_langs:
+            active_langs = [toolbar_lang] + active_langs
+        lang_codes = [LANGUAGES[name] for name in active_langs if name in LANGUAGES]
+        if not lang_codes:
+            lang_codes = ["spa"]
+
+        dl = SubtitleDownloader(
+            lang_codes=lang_codes,
+            auto_rename=self.toolbar.rename_var.get(),
+            providers=self.config.get_active_providers() or None,
+            provider_configs=self.config.get_provider_config(),
+        )
+
+        t = self.theme
+
+        def on_status(path, status, *args):
+            row = self.video_list.get_row_by_path(path)
+            if not row:
+                return
+            if status == "alternative":
+                provider = args[0] if args else "?"
+                idx = args[1] if len(args) > 1 else "?"
+                total = args[2] if len(args) > 2 else "?"
+                text = f"Alt {idx}/{total} ({provider})"
+                self.after(0, lambda: row.set_status(text, t.green))
+                self.after(0, lambda: self.status_bar.set_text(
+                    f"Alternativa {idx} de {total} desde {provider}"
+                ))
+            elif status == "no_more":
+                self.after(0, lambda: row.set_status("Sin mas opciones", t.red))
+                self.after(0, lambda: self.status_bar.set_text("No hay mas alternativas"))
+            elif status == "searching":
+                self.after(0, lambda: row.set_status("Buscando alt...", t.amber))
+                self.after(0, lambda: self.status_bar.set_text("Buscando alternativas..."))
+            elif status == "error":
+                self.after(0, lambda: row.set_status("Error", t.red))
+
+        def on_complete(downloaded, failed):
+            self.after(0, lambda: self._download_done(downloaded, failed))
+
+        def on_progress(p):
+            self.after(0, lambda: self.progress.set(p))
+
+        dl.on_item_status(on_status)
+        dl.on_progress(on_progress)
+        dl.on_complete(on_complete)
+        dl.download_alternative(filepath, skip_index)
 
     # --- Theme ---
 

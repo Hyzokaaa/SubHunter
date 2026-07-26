@@ -3,6 +3,12 @@ import threading
 import subliminal
 from babelfish import Language
 
+# Configure subliminal cache (required for providers like subtitulamos)
+try:
+    subliminal.region.configure('dogpile.cache.memory')
+except Exception:
+    pass  # Already configured
+
 
 class SubtitleDownloader:
     """Handles subtitle search and download in a background thread."""
@@ -34,6 +40,31 @@ class SubtitleDownloader:
         )
         thread.start()
 
+    def download_alternative(self, file_path, skip_index=0):
+        """Download an alternative subtitle, skipping the first N results."""
+        thread = threading.Thread(
+            target=self._run_alternative, args=(file_path, skip_index), daemon=True
+        )
+        thread.start()
+
+    def _build_kwargs(self):
+        kwargs = {"providers": self.providers}
+        if self.provider_configs:
+            kwargs["provider_configs"] = self.provider_configs
+        return kwargs
+
+    def _save_subtitle(self, path, sub):
+        if self.auto_rename:
+            suffix = ""
+            if len(self.languages) > 1:
+                suffix = f".{sub.language.alpha3}"
+            out = os.path.splitext(path)[0] + suffix + ".srt"
+            with open(out, "wb") as f:
+                f.write(sub.content)
+        else:
+            video = subliminal.scan_video(path)
+            subliminal.save_subtitles(video, [sub])
+
     def _run(self, file_paths):
         total = len(file_paths)
         downloaded = 0
@@ -45,31 +76,18 @@ class SubtitleDownloader:
 
             try:
                 video = subliminal.scan_video(path)
-
-                kwargs = {"providers": self.providers}
-                if self.provider_configs:
-                    kwargs["provider_configs"] = self.provider_configs
-
                 subs = subliminal.download_best_subtitles(
-                    {video}, self.languages, **kwargs
+                    {video}, self.languages, **self._build_kwargs()
                 )
 
                 if subs.get(video):
-                    if self.auto_rename:
-                        for sub in subs[video]:
-                            suffix = ""
-                            # Add language suffix if multiple languages
-                            if len(self.languages) > 1:
-                                suffix = f".{sub.language.alpha3}"
-                            out = os.path.splitext(path)[0] + suffix + ".srt"
-                            with open(out, "wb") as f:
-                                f.write(sub.content)
-                    else:
-                        subliminal.save_subtitles(video, subs[video])
+                    for sub in subs[video]:
+                        self._save_subtitle(path, sub)
 
+                    provider = subs[video][0].provider_name
                     downloaded += 1
                     if self._on_item_status:
-                        self._on_item_status(path, "downloaded")
+                        self._on_item_status(path, "downloaded", provider)
                 else:
                     failed += 1
                     if self._on_item_status:
@@ -85,3 +103,74 @@ class SubtitleDownloader:
 
         if self._on_complete:
             self._on_complete(downloaded, failed)
+
+    def _run_alternative(self, file_path, skip_index):
+        if self._on_item_status:
+            self._on_item_status(file_path, "searching")
+
+        try:
+            video = subliminal.scan_video(file_path)
+
+            # List ALL available subtitles instead of just the best
+            kwargs = self._build_kwargs()
+            all_subs = subliminal.list_subtitles(
+                {video}, self.languages, **kwargs
+            )
+
+            candidates = all_subs.get(video, [])
+
+            # Sort by score (subliminal's default scoring)
+            candidates.sort(
+                key=lambda s: subliminal.compute_score(s, video),
+                reverse=True
+            )
+
+            if skip_index >= len(candidates):
+                if self._on_item_status:
+                    self._on_item_status(file_path, "no_more")
+                if self._on_complete:
+                    self._on_complete(0, 1)
+                return
+
+            # Skip the first N and pick the next one
+            target = candidates[skip_index]
+
+            # Download the subtitle content
+            provider_name = target.provider_name
+            provider_pool = subliminal.core.ProviderPool(
+                providers=self.providers,
+                provider_configs=self.provider_configs,
+            )
+            try:
+                provider_pool.download_subtitle(target)
+            finally:
+                provider_pool.terminate()
+
+            if target.content:
+                # Delete existing .srt before saving new one
+                srt_path = os.path.splitext(file_path)[0] + ".srt"
+                if os.path.exists(srt_path):
+                    os.remove(srt_path)
+
+                self._save_subtitle(file_path, target)
+
+                remaining = len(candidates) - skip_index - 1
+                if self._on_item_status:
+                    self._on_item_status(
+                        file_path, "alternative",
+                        provider_name, skip_index + 1, len(candidates)
+                    )
+                if self._on_complete:
+                    self._on_complete(1, 0)
+            else:
+                # Content failed to download, try next
+                self._run_alternative(file_path, skip_index + 1)
+
+        except Exception:
+            if self._on_item_status:
+                self._on_item_status(file_path, "error")
+            if self._on_complete:
+                self._on_complete(0, 1)
+
+        if self._on_progress:
+            self._on_progress(1.0)
