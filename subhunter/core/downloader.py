@@ -40,6 +40,23 @@ class SubtitleDownloader:
         )
         thread.start()
 
+    def search(self, file_paths, on_results=None):
+        """Search all providers and return results without downloading."""
+        thread = threading.Thread(
+            target=self._run_search, args=(file_paths, on_results), daemon=True
+        )
+        thread.start()
+
+    def download_selection(self, selections, fallbacks=None):
+        """Download specific subtitle objects with fallback alternatives.
+        selections: dict filepath -> subtitle_obj
+        fallbacks: dict filepath -> list of (sub, score, provider) tuples
+        """
+        thread = threading.Thread(
+            target=self._run_selection, args=(selections, fallbacks), daemon=True
+        )
+        thread.start()
+
     def download_alternative(self, file_path, skip_index=0):
         """Download an alternative subtitle, skipping the first N results."""
         thread = threading.Thread(
@@ -100,6 +117,107 @@ class SubtitleDownloader:
 
             if self._on_progress:
                 self._on_progress((i + 1) / total)
+
+        if self._on_complete:
+            self._on_complete(downloaded, failed)
+
+    def _run_search(self, file_paths, on_results):
+        """Search all providers, return results grouped by filepath."""
+        results = {}
+        total = len(file_paths)
+
+        for i, path in enumerate(file_paths):
+            if self._on_item_status:
+                self._on_item_status(path, "searching")
+
+            try:
+                video = subliminal.scan_video(path)
+                all_subs = subliminal.list_subtitles(
+                    {video}, self.languages, **self._build_kwargs()
+                )
+
+                candidates = all_subs.get(video, [])
+                scored = []
+                for sub in candidates:
+                    score = subliminal.compute_score(sub, video)
+                    scored.append((sub, score, sub.provider_name))
+
+                scored.sort(key=lambda x: x[1], reverse=True)
+                results[path] = scored
+
+                if scored:
+                    if self._on_item_status:
+                        self._on_item_status(path, "found", len(scored))
+                else:
+                    if self._on_item_status:
+                        self._on_item_status(path, "not_found")
+
+            except Exception:
+                results[path] = []
+                if self._on_item_status:
+                    self._on_item_status(path, "error")
+
+            if self._on_progress:
+                self._on_progress((i + 1) / total)
+
+        if on_results:
+            on_results(results)
+
+    def _run_selection(self, selections, fallbacks=None):
+        """Download specific subtitle objects chosen by user, with auto-fallback."""
+        total = len(selections)
+        downloaded = 0
+        failed = 0
+        fallbacks = fallbacks or {}
+
+        provider_pool = subliminal.core.ProviderPool(
+            providers=self.providers,
+            provider_configs=self.provider_configs,
+        )
+
+        try:
+            for i, (path, chosen_sub) in enumerate(selections.items()):
+                if self._on_item_status:
+                    self._on_item_status(path, "searching")
+
+                # Build attempt list: chosen first, then fallbacks
+                attempts = [chosen_sub]
+                for sub, _score, _prov in fallbacks.get(path, []):
+                    if sub is not chosen_sub:
+                        attempts.append(sub)
+
+                success = False
+                for attempt in attempts:
+                    try:
+                        provider_pool.download_subtitle(attempt)
+                        if attempt.content:
+                            self._save_subtitle(path, attempt)
+                            downloaded += 1
+                            provider = attempt.provider_name
+                            if attempt is not chosen_sub:
+                                # Fallback was used
+                                if self._on_item_status:
+                                    self._on_item_status(
+                                        path, "downloaded",
+                                        f"{provider} (fallback)"
+                                    )
+                            else:
+                                if self._on_item_status:
+                                    self._on_item_status(path, "downloaded", provider)
+                            success = True
+                            break
+                    except Exception:
+                        continue
+
+                if not success:
+                    failed += 1
+                    if self._on_item_status:
+                        self._on_item_status(path, "error")
+
+                if self._on_progress:
+                    self._on_progress((i + 1) / total)
+        finally:
+            provider_pool.terminate()
 
         if self._on_complete:
             self._on_complete(downloaded, failed)

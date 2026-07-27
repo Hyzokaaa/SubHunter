@@ -7,7 +7,7 @@ from subhunter.core.theme import DARK, LIGHT
 from subhunter.core.constants import LANGUAGES
 from subhunter.core.config import Config
 from subhunter.core.downloader import SubtitleDownloader
-from subhunter.components import GlowBar, Toolbar, VideoList, StatusBar, SettingsPanel
+from subhunter.components import GlowBar, Toolbar, VideoList, StatusBar, SettingsPanel, SubtitlePicker
 
 
 def _icon_path():
@@ -188,6 +188,49 @@ class SubHunterApp(ctk.CTk):
         else:
             self.status_bar.set_text(f"Listo  --  {count} archivos" if has else "Listo")
 
+    def _build_downloader(self):
+        active_langs = self.config.get("languages", ["Espanol"])
+        toolbar_lang = self.toolbar.lang_var.get()
+        if toolbar_lang not in active_langs:
+            active_langs = [toolbar_lang] + active_langs
+        lang_codes = [LANGUAGES[name] for name in active_langs if name in LANGUAGES]
+        if not lang_codes:
+            lang_codes = ["spa"]
+
+        return SubtitleDownloader(
+            lang_codes=lang_codes,
+            auto_rename=self.toolbar.rename_var.get(),
+            providers=self.config.get_active_providers() or None,
+            provider_configs=self.config.get_provider_config(),
+        )
+
+    def _update_row_status(self, path, status, *args):
+        row = self.video_list.get_row_by_path(path)
+        if not row:
+            return
+        t = self.theme
+        if status == "downloaded":
+            provider = args[0] if args else "?"
+            text, color = f"OK ({provider})", t.green
+        elif status == "found":
+            count = args[0] if args else 0
+            text, color = f"{count} opciones", t.accent
+        elif status == "alternative":
+            provider = args[0] if args else "?"
+            idx = args[1] if len(args) > 1 else "?"
+            total = args[2] if len(args) > 2 else "?"
+            text, color = f"Alt {idx}/{total} ({provider})", t.green
+        elif status == "no_more":
+            text, color = "Sin mas opciones", t.red
+        else:
+            status_map = {
+                "searching":  ("Buscando...", t.amber),
+                "not_found":  ("No encontrado", t.red),
+                "error":      ("Error", t.red),
+            }
+            text, color = status_map.get(status, ("?", t.text_dim))
+        self.after(0, lambda: row.set_status(text, color))
+
     def _start_download(self):
         if self.is_downloading:
             return
@@ -199,63 +242,61 @@ class SubHunterApp(ctk.CTk):
 
         self.is_downloading = True
         self.toolbar.set_downloading(True)
+        self.status_bar.set_text("Buscando subtitulos disponibles...")
 
-        # Build lang codes from config
-        active_langs = self.config.get("languages", ["Espanol"])
-        # Also include whatever is selected in the toolbar
-        toolbar_lang = self.toolbar.lang_var.get()
-        if toolbar_lang not in active_langs:
-            active_langs = [toolbar_lang] + active_langs
-        lang_codes = [LANGUAGES[name] for name in active_langs if name in LANGUAGES]
-        if not lang_codes:
-            lang_codes = ["spa"]
-
-        dl = SubtitleDownloader(
-            lang_codes=lang_codes,
-            auto_rename=self.toolbar.rename_var.get(),
-            providers=self.config.get_active_providers() or None,
-            provider_configs=self.config.get_provider_config(),
-        )
-
-        t = self.theme
-
-        def on_status(path, status, *args):
-            row = self.video_list.get_row_by_path(path)
-            if not row:
-                return
-            if status == "downloaded":
-                provider = args[0] if args else "?"
-                text, color = f"OK ({provider})", t.green
-            elif status == "alternative":
-                provider = args[0] if args else "?"
-                idx = args[1] if len(args) > 1 else "?"
-                total = args[2] if len(args) > 2 else "?"
-                text, color = f"Alt {idx}/{total} ({provider})", t.green
-            elif status == "no_more":
-                text, color = "Sin mas opciones", t.red
-            else:
-                status_map = {
-                    "searching":  ("Buscando...", t.amber),
-                    "not_found":  ("No encontrado", t.red),
-                    "error":      ("Error", t.red),
-                }
-                text, color = status_map.get(status, ("?", t.text_dim))
-            self.after(0, lambda: row.set_status(text, color))
+        dl = self._build_downloader()
+        dl.on_item_status(self._update_row_status)
 
         def on_progress(p):
             self.after(0, lambda: self.progress.set(p))
             idx = int(p * len(paths))
             self.after(0, lambda: self.status_bar.set_text(
-                f"Buscando subtitulo {min(idx, len(paths))} de {len(paths)}..."
+                f"Buscando {min(idx, len(paths))} de {len(paths)}..."
             ))
+
+        def on_results(results):
+            self.after(0, lambda: self._show_picker(results))
+
+        dl.on_progress(on_progress)
+        dl.search(paths, on_results=on_results)
+
+    def _show_picker(self, results):
+        self.is_downloading = False
+        self.toolbar.set_downloading(False)
+
+        total_found = sum(len(subs) for subs in results.values())
+        if total_found == 0:
+            self.status_bar.set_text("No se encontraron subtitulos")
+            return
+
+        self.status_bar.set_text(f"{total_found} subtitulos encontrados -- elige cuales descargar")
+
+        SubtitlePicker(
+            self, self.theme, results,
+            on_confirm=self._download_picked
+        )
+
+    def _download_picked(self, selections, fallbacks=None):
+        if not selections:
+            self.status_bar.set_text("Ninguno seleccionado")
+            return
+
+        self.is_downloading = True
+        self.toolbar.set_downloading(True)
+        self.status_bar.set_text(f"Descargando {len(selections)} subtitulos...")
+
+        dl = self._build_downloader()
+        dl.on_item_status(self._update_row_status)
+
+        def on_progress(p):
+            self.after(0, lambda: self.progress.set(p))
 
         def on_complete(downloaded, failed):
             self.after(0, lambda: self._download_done(downloaded, failed))
 
-        dl.on_item_status(on_status)
         dl.on_progress(on_progress)
         dl.on_complete(on_complete)
-        dl.download(paths)
+        dl.download_selection(selections, fallbacks=fallbacks)
 
     def _download_done(self, downloaded, failed):
         self.is_downloading = False
@@ -273,44 +314,8 @@ class SubHunterApp(ctk.CTk):
         self.is_downloading = True
         self.toolbar.set_downloading(True)
 
-        active_langs = self.config.get("languages", ["Espanol"])
-        toolbar_lang = self.toolbar.lang_var.get()
-        if toolbar_lang not in active_langs:
-            active_langs = [toolbar_lang] + active_langs
-        lang_codes = [LANGUAGES[name] for name in active_langs if name in LANGUAGES]
-        if not lang_codes:
-            lang_codes = ["spa"]
-
-        dl = SubtitleDownloader(
-            lang_codes=lang_codes,
-            auto_rename=self.toolbar.rename_var.get(),
-            providers=self.config.get_active_providers() or None,
-            provider_configs=self.config.get_provider_config(),
-        )
-
-        t = self.theme
-
-        def on_status(path, status, *args):
-            row = self.video_list.get_row_by_path(path)
-            if not row:
-                return
-            if status == "alternative":
-                provider = args[0] if args else "?"
-                idx = args[1] if len(args) > 1 else "?"
-                total = args[2] if len(args) > 2 else "?"
-                text = f"Alt {idx}/{total} ({provider})"
-                self.after(0, lambda: row.set_status(text, t.green))
-                self.after(0, lambda: self.status_bar.set_text(
-                    f"Alternativa {idx} de {total} desde {provider}"
-                ))
-            elif status == "no_more":
-                self.after(0, lambda: row.set_status("Sin mas opciones", t.red))
-                self.after(0, lambda: self.status_bar.set_text("No hay mas alternativas"))
-            elif status == "searching":
-                self.after(0, lambda: row.set_status("Buscando alt...", t.amber))
-                self.after(0, lambda: self.status_bar.set_text("Buscando alternativas..."))
-            elif status == "error":
-                self.after(0, lambda: row.set_status("Error", t.red))
+        dl = self._build_downloader()
+        dl.on_item_status(self._update_row_status)
 
         def on_complete(downloaded, failed):
             self.after(0, lambda: self._download_done(downloaded, failed))
@@ -318,7 +323,6 @@ class SubHunterApp(ctk.CTk):
         def on_progress(p):
             self.after(0, lambda: self.progress.set(p))
 
-        dl.on_item_status(on_status)
         dl.on_progress(on_progress)
         dl.on_complete(on_complete)
         dl.download_alternative(filepath, skip_index)

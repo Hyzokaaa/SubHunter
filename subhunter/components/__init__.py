@@ -5,3 +5,4 @@ from .video_list import VideoList
 from .status_bar import StatusBar
 from .context_menu import ContextMenu
 from .settings_panel import SettingsPanel
+from .subtitle_picker import SubtitlePicker
