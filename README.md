@@ -1,33 +1,33 @@
 # SubHunter
 
-Descarga subtitulos para peliculas y series automaticamente. Busca en multiples proveedores y empareja cada subtitulo con su archivo de video.
+Automatic subtitle downloader for movies and TV series. Searches multiple providers and matches each subtitle to its video file.
+
+**[Leer en Espanol](README.es.md)**
 
 ![SubHunter](screenshot.png)
 
-## Caracteristicas
+## Features
 
-- **Busqueda inteligente** — usa el hash del video para encontrar el subtitulo exacto, no solo el nombre
-- **Multiples proveedores** — OpenSubtitles.com, OpenSubtitles.org, Addic7ed, Podnapisi, TVSubtitles
-- **11 idiomas** — Espanol, English, Portugues, Francais, Italiano, Deutsch, y mas
-- **Multi-idioma simultaneo** — descarga subtitulos en varios idiomas de una sola pasada
-- **Auto-renombrar** — el .srt se nombra identico al video para que el reproductor lo detecte automaticamente
-- **Carga aditiva** — agrega videos de multiples carpetas sin perder los anteriores
-- **Deteccion de duplicados** — ignora archivos ya cargados y avisa
-- **Click derecho** — menu contextual con acciones rapidas (descargar, quitar, seleccionar, limpiar)
-- **Modo claro / oscuro** — tema cinematico oscuro con acentos dorados, o modo claro
-- **Configuracion persistente** — recuerda idioma, tema, proveedores y credenciales entre sesiones
+- **Smart search** — uses video file hash to find the exact matching subtitle, not just the filename
+- **Provider picker** — shows all available subtitles from every provider and lets you choose which one to download
+- **Auto-fallback** — if the selected provider fails, automatically tries the next one
+- **7 providers** — OpenSubtitles.com, OpenSubtitles.org, Subtitulamos.tv, Addic7ed, Gestdown, Podnapisi, TVSubtitles
+- **11 languages** — Spanish, English, Portuguese, French, Italian, German, Chinese, Japanese, Korean, Arabic, Russian
+- **Multi-language** — download subtitles in multiple languages in a single pass
+- **Auto-rename** — the .srt file is named identically to the video so your player picks it up automatically
+- **Additive loading** — add videos from multiple folders without losing the previous ones
+- **Duplicate detection** — ignores already loaded files and warns you
+- **Right-click menu** — context menu with quick actions (download, find alternative, remove, select, clear)
+- **Dark / Light mode** — cinematic dark theme with golden accents, or light mode
+- **Persistent config** — remembers language, theme, providers, and credentials between sessions
 
-## Instalacion
+## Download
 
-### Desde el codigo fuente
+### Windows executable (.exe)
 
-```bash
-git clone https://github.com/Hyzokaaa/SubHunter.git
-cd SubHunter
-pip install .
-```
+Download `SubHunter.exe` from [Releases](https://github.com/Hyzokaaa/SubHunter/releases) and run it directly. No Python required.
 
-### Ejecucion directa (sin instalar)
+### From source
 
 ```bash
 git clone https://github.com/Hyzokaaa/SubHunter.git
@@ -36,56 +36,76 @@ pip install customtkinter subliminal babelfish
 python main.py
 ```
 
-### Ejecutable (.exe)
+### Install as package
 
-Descarga el .exe desde [Releases](https://github.com/Hyzokaaa/SubHunter/releases) y ejecutalo directamente. No necesita Python.
+```bash
+git clone https://github.com/Hyzokaaa/SubHunter.git
+cd SubHunter
+pip install .
+```
 
-## Uso
+## Usage
 
-1. Abre la app con `python main.py` o el .exe
-2. Click en **Carpeta** o **Archivos** para cargar videos
-3. Selecciona el idioma deseado
-4. Click en **Descargar**
-5. Los subtitulos se guardan junto a cada video
+1. Open the app with `python main.py` or the .exe
+2. Click **Carpeta** (Folder) or **Archivos** (Files) to load videos
+3. Select your language
+4. Click **Descargar** (Download)
+5. Choose which provider to download from in the picker dialog
+6. Subtitles are saved next to each video file
 
-### Configuracion
+### Settings
 
-Click en **Config** (arriba a la derecha) para:
+Click **Config** (top right) to:
 
-- Cambiar el idioma por defecto
-- Activar descarga en multiples idiomas
-- Activar/desactivar proveedores
-- Agregar credenciales de OpenSubtitles.com (opcional, cuenta gratis = 20 descargas/dia)
+- Set default language
+- Enable multi-language download
+- Enable/disable providers
+- Add OpenSubtitles.com credentials (optional, free account = 20 downloads/day)
 
-## Estructura
+## How it works
+
+Unlike simple name-based searches, SubHunter uses [Subliminal](https://github.com/Diaoul/subliminal) to compute a **hash of your video file**. This hash uniquely identifies your exact release, so the subtitle you get is guaranteed to be in sync — no timing issues, no wrong version.
+
+When you click Download:
+1. SubHunter scans all enabled providers for subtitles matching your video
+2. A **picker dialog** shows you every available option with provider name and match score
+3. You choose which one to download (the best match is pre-selected)
+4. If the download fails, it **automatically falls back** to the next best option
+
+## Project structure
 
 ```
 SubHunter/
-  main.py                       # Entry point
+  main.py                          # Entry point
   subhunter/
-    app.py                      # Ventana principal
+    app.py                         # Main window
     core/
-      config.py                 # Configuracion persistente (JSON)
-      constants.py              # Extensiones, idiomas, proveedores
-      downloader.py             # Motor de descarga (subliminal)
-      theme.py                  # Temas claro/oscuro
+      config.py                    # Persistent config (JSON)
+      constants.py                 # Extensions, languages, providers
+      downloader.py                # Download engine (subliminal)
+      theme.py                     # Dark/light themes
     components/
-      context_menu.py           # Menu click derecho
-      glow_bar.py               # Barra de progreso con efecto glow
-      settings_panel.py         # Panel de configuracion
-      status_bar.py             # Barra de estado inferior
-      toolbar.py                # Barra de acciones superior
-      video_list.py             # Lista de videos con scroll
-      video_row.py              # Fila individual de video
+      context_menu.py              # Right-click menu
+      glow_bar.py                  # Progress bar with glow effect
+      settings_panel.py            # Settings panel
+      status_bar.py                # Footer status bar
+      subtitle_picker.py           # Provider selection dialog
+      toolbar.py                   # Top action bar
+      video_list.py                # Scrollable video list
+      video_row.py                 # Individual video row
 ```
 
-## Tecnologias
+## Tech stack
 
 - **Python 3.10+**
-- **CustomTkinter** — UI moderna
-- **Subliminal** — motor de busqueda de subtitulos
-- **Babelfish** — manejo de idiomas
+- **CustomTkinter** — modern desktop UI
+- **Subliminal** — subtitle search engine
+- **Babelfish** — language handling
 
-## Licencia
+## Contributing
+
+Contributions are welcome. Feel free to open issues or submit pull requests.
+
+## License
 
 [MIT](LICENSE)
