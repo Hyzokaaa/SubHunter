@@ -3,7 +3,7 @@ import urllib.request
 import json
 import webbrowser
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 REPO = "Hyzokaaa/SubHunter"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases/latest"
