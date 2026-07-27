@@ -7,6 +7,7 @@ from subhunter.core.theme import DARK, LIGHT
 from subhunter.core.constants import LANGUAGES
 from subhunter.core.config import Config
 from subhunter.core.downloader import SubtitleDownloader
+from subhunter.core.updater import Updater, VERSION
 from subhunter.components import GlowBar, Toolbar, VideoList, StatusBar, SettingsPanel, SubtitlePicker
 
 
@@ -43,6 +44,7 @@ class SubHunterApp(ctk.CTk):
 
         self._build()
         self._apply_config()
+        self._check_updates()
 
     def _build(self):
         t = self.theme
@@ -84,7 +86,7 @@ class SubHunterApp(ctk.CTk):
         right.pack(side="right")
 
         self._ver = ctk.CTkLabel(
-            right, text="v1.0",
+            right, text=f"v{VERSION}",
             font=ctk.CTkFont(family="Consolas", size=10),
             text_color=t.accent_dim, fg_color=t.bg_input,
             corner_radius=4, width=36, height=18,
@@ -337,6 +339,48 @@ class SubHunterApp(ctk.CTk):
         self.config.set("theme", "dark" if self.is_dark else "light")
         self.config.save()
         self._apply_theme()
+
+    # --- Updates ---
+
+    def _check_updates(self):
+        updater = Updater()
+        updater.on_update_available(
+            lambda ver, url: self.after(0, lambda: self._show_update_banner(ver, url))
+        )
+        updater.check()
+
+    def _show_update_banner(self, version, download_url):
+        t = self.theme
+        self._update_bar = ctk.CTkFrame(
+            self, height=32, fg_color=t.accent_dim, corner_radius=0
+        )
+        self._update_bar.pack(fill="x", side="bottom")
+        self._update_bar.pack_propagate(False)
+
+        ctk.CTkLabel(
+            self._update_bar,
+            text=f"Nueva version v{version} disponible",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=t.bg_deep,
+        ).pack(side="left", padx=(16, 8))
+
+        ctk.CTkButton(
+            self._update_bar, text="Descargar",
+            command=lambda: Updater.open_download(download_url),
+            width=80, height=22,
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            fg_color=t.bg_deep, hover_color=t.bg_card,
+            text_color=t.accent, corner_radius=4,
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            self._update_bar, text="X",
+            command=self._update_bar.destroy,
+            width=24, height=22,
+            font=ctk.CTkFont(family="Consolas", size=11),
+            fg_color="transparent", hover_color=t.accent,
+            text_color=t.bg_deep, corner_radius=4,
+        ).pack(side="right", padx=8)
 
     def _apply_theme(self):
         t = self.theme
