@@ -351,27 +351,31 @@ class SubHunterApp(ctk.CTk):
 
     def _show_update_banner(self, version, download_url):
         t = self.theme
+        self._update_url = download_url
+
         self._update_bar = ctk.CTkFrame(
             self, height=32, fg_color=t.accent_dim, corner_radius=0
         )
         self._update_bar.pack(fill="x", side="bottom")
         self._update_bar.pack_propagate(False)
 
-        ctk.CTkLabel(
+        self._update_label = ctk.CTkLabel(
             self._update_bar,
             text=f"Nueva version v{version} disponible",
             font=ctk.CTkFont(family="Segoe UI", size=11),
             text_color=t.bg_deep,
-        ).pack(side="left", padx=(16, 8))
+        )
+        self._update_label.pack(side="left", padx=(16, 8))
 
-        ctk.CTkButton(
-            self._update_bar, text="Descargar",
-            command=lambda: Updater.open_download(download_url),
-            width=80, height=22,
+        self._update_btn = ctk.CTkButton(
+            self._update_bar, text="Actualizar",
+            command=self._do_update,
+            width=90, height=22,
             font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
             fg_color=t.bg_deep, hover_color=t.bg_card,
             text_color=t.accent, corner_radius=4,
-        ).pack(side="left")
+        )
+        self._update_btn.pack(side="left")
 
         ctk.CTkButton(
             self._update_bar, text="X",
@@ -381,6 +385,36 @@ class SubHunterApp(ctk.CTk):
             fg_color="transparent", hover_color=t.accent,
             text_color=t.bg_deep, corner_radius=4,
         ).pack(side="right", padx=8)
+
+    def _do_update(self):
+        self._update_btn.configure(state="disabled", text="Descargando...")
+        self._update_label.configure(text="Descargando actualizacion...")
+
+        updater = Updater()
+
+        def on_progress(pct):
+            self.after(0, lambda: self._update_label.configure(
+                text=f"Descargando... {pct}%"
+            ))
+            self.after(0, lambda: self.progress.set(pct / 100))
+
+        def on_done():
+            self.after(0, lambda: self._update_label.configure(
+                text="Reiniciando..."
+            ))
+
+        def on_error(msg):
+            self.after(0, lambda: self._update_label.configure(
+                text=f"Error: {msg[:40]}"
+            ))
+            self.after(0, lambda: self._update_btn.configure(
+                state="normal", text="Reintentar"
+            ))
+
+        updater.on_download_progress(on_progress)
+        updater.on_download_done(on_done)
+        updater.on_download_error(on_error)
+        updater.download_and_replace(self._update_url)
 
     def _apply_theme(self):
         t = self.theme
