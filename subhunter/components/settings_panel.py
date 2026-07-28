@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from subhunter.core.theme import Theme
+from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
 from subhunter.core.config import Config, PROVIDER_LABELS
 from subhunter.core.constants import LANGUAGES
 
@@ -33,13 +33,13 @@ class SettingsPanel(ctk.CTkToplevel):
         # Title
         ctk.CTkLabel(
             self, text="Configuracion",
-            font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=18, weight="bold"),
             text_color=t.text,
         ).pack(anchor="w", padx=pad, pady=(pad, 4))
 
         ctk.CTkLabel(
             self, text="Los cambios se guardan automaticamente",
-            font=ctk.CTkFont(family="Segoe UI", size=10),
+            font=ctk.CTkFont(family=FONT_UI, size=10),
             text_color=t.text_dim,
         ).pack(anchor="w", padx=pad, pady=(0, 12))
 
@@ -57,7 +57,7 @@ class SettingsPanel(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             scroll, text="Idioma por defecto",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=t.text_mid,
         ).pack(anchor="w", padx=12, pady=(0, 4))
 
@@ -65,7 +65,7 @@ class SettingsPanel(ctk.CTkToplevel):
         ctk.CTkOptionMenu(
             scroll, values=list(LANGUAGES.keys()),
             variable=self._default_lang, width=160, height=30,
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             fg_color=t.bg_input, button_color=t.accent_dim,
             button_hover_color=t.accent,
             dropdown_fg_color=t.bg_card, dropdown_hover_color=t.bg_card_hover,
@@ -74,7 +74,7 @@ class SettingsPanel(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             scroll, text="Idiomas a descargar (simultaneo)",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=t.text_mid,
         ).pack(anchor="w", padx=12, pady=(0, 4))
 
@@ -90,7 +90,7 @@ class SettingsPanel(ctk.CTkToplevel):
             self._lang_vars[name] = var
             ctk.CTkCheckBox(
                 row_frame, text=name, variable=var,
-                font=ctk.CTkFont(family="Segoe UI", size=11),
+                font=ctk.CTkFont(family=FONT_UI, size=11),
                 checkbox_width=16, checkbox_height=16,
                 fg_color=t.accent, hover_color=t.accent_bright,
                 border_color=t.text_dim, checkmark_color=t.bg_deep,
@@ -110,7 +110,7 @@ class SettingsPanel(ctk.CTkToplevel):
             self._provider_vars[key] = var
             ctk.CTkCheckBox(
                 scroll, text=label, variable=var,
-                font=ctk.CTkFont(family="Segoe UI", size=11),
+                font=ctk.CTkFont(family=FONT_UI, size=11),
                 checkbox_width=16, checkbox_height=16,
                 fg_color=t.accent, hover_color=t.accent_bright,
                 border_color=t.text_dim, checkmark_color=t.bg_deep,
@@ -122,20 +122,20 @@ class SettingsPanel(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             scroll, text="Opcional — cuenta gratis = 20 descargas/dia",
-            font=ctk.CTkFont(family="Segoe UI", size=10),
+            font=ctk.CTkFont(family=FONT_UI, size=10),
             text_color=t.text_dim,
         ).pack(anchor="w", padx=12, pady=(0, 6))
 
         input_cfg = dict(
             width=260, height=30,
-            font=ctk.CTkFont(family="Consolas", size=11),
+            font=ctk.CTkFont(family=FONT_MONO, size=11),
             fg_color=t.bg_input, border_color=t.border,
             text_color=t.text, corner_radius=6,
         )
 
         ctk.CTkLabel(
             scroll, text="Usuario",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=t.text_mid,
         ).pack(anchor="w", padx=12, pady=(0, 2))
 
@@ -149,7 +149,7 @@ class SettingsPanel(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             scroll, text="Contrasena",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=t.text_mid,
         ).pack(anchor="w", padx=12, pady=(0, 2))
 
@@ -168,7 +168,7 @@ class SettingsPanel(ctk.CTkToplevel):
         ctk.CTkButton(
             btn_frame, text="Guardar", command=self._save,
             width=120, height=32,
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=12, weight="bold"),
             fg_color=t.accent_dim, hover_color=t.accent,
             text_color=t.bg_deep, corner_radius=6,
         ).pack(side="right", padx=(6, 0))
@@ -176,7 +176,7 @@ class SettingsPanel(ctk.CTkToplevel):
         ctk.CTkButton(
             btn_frame, text="Cancelar", command=self.destroy,
             width=100, height=32,
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=FONT_UI, size=12),
             fg_color=t.bg_input, hover_color=t.bg_card_hover,
             text_color=t.text, corner_radius=6,
             border_width=1, border_color=t.border,
@@ -188,7 +188,7 @@ class SettingsPanel(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             frame, text=title,
-            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=13, weight="bold"),
             text_color=t.accent,
         ).pack(side="left", padx=12)
 

@@ -1,6 +1,6 @@
 import os
 import customtkinter as ctk
-from subhunter.core.theme import Theme
+from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
 
 
 class SubtitlePicker(ctk.CTkToplevel):
@@ -37,7 +37,7 @@ class SubtitlePicker(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             header, text="Subtitulos disponibles",
-            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=16, weight="bold"),
             text_color=t.text,
         ).pack(side="left")
 
@@ -46,7 +46,7 @@ class SubtitlePicker(ctk.CTkToplevel):
         ctk.CTkLabel(
             header,
             text=f"{total_subs} opciones para {total_videos} videos",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=t.text_dim,
         ).pack(side="right")
 
@@ -69,7 +69,7 @@ class SubtitlePicker(ctk.CTkToplevel):
         ctk.CTkButton(
             btn_frame, text="Descargar seleccionados", command=self._confirm,
             width=180, height=32,
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=12, weight="bold"),
             fg_color=t.accent_dim, hover_color=t.accent,
             text_color=t.bg_deep, corner_radius=6,
         ).pack(side="right", padx=(6, 0))
@@ -77,7 +77,7 @@ class SubtitlePicker(ctk.CTkToplevel):
         ctk.CTkButton(
             btn_frame, text="Cancelar", command=self.destroy,
             width=100, height=32,
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=FONT_UI, size=12),
             fg_color=t.bg_input, hover_color=t.bg_card_hover,
             text_color=t.text, corner_radius=6,
             border_width=1, border_color=t.border,
@@ -96,14 +96,14 @@ class SubtitlePicker(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             group, text=name, anchor="w",
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=12, weight="bold"),
             text_color=t.text,
         ).pack(fill="x", padx=10, pady=(8, 4))
 
         if not subs:
             ctk.CTkLabel(
                 group, text="No se encontraron subtitulos",
-                font=ctk.CTkFont(family="Segoe UI", size=11),
+                font=ctk.CTkFont(family=FONT_UI, size=11),
                 text_color=t.red, anchor="w",
             ).pack(fill="x", padx=10, pady=(0, 8))
             return
@@ -127,7 +127,7 @@ class SubtitlePicker(ctk.CTkToplevel):
             # Provider name
             ctk.CTkLabel(
                 row, text=provider, width=120, anchor="w",
-                font=ctk.CTkFont(family="Consolas", size=11, weight="bold"),
+                font=ctk.CTkFont(family=FONT_MONO, size=11, weight="bold"),
                 text_color=t.accent,
             ).pack(side="left", padx=(0, 8))
 
@@ -137,7 +137,7 @@ class SubtitlePicker(ctk.CTkToplevel):
 
             ctk.CTkLabel(
                 row, text=f"{score_pct}%", width=35, anchor="e",
-                font=ctk.CTkFont(family="Consolas", size=10),
+                font=ctk.CTkFont(family=FONT_MONO, size=10),
                 text_color=score_color,
             ).pack(side="left", padx=(0, 6))
 
@@ -154,7 +154,7 @@ class SubtitlePicker(ctk.CTkToplevel):
             if i == 0:
                 ctk.CTkLabel(
                     row, text="mejor", width=40,
-                    font=ctk.CTkFont(family="Segoe UI", size=9),
+                    font=ctk.CTkFont(family=FONT_UI, size=9),
                     text_color=t.bg_deep, fg_color=t.accent_dim,
                     corner_radius=3,
                 ).pack(side="left", padx=(0, 4))

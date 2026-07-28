@@ -27,6 +27,14 @@ Descarga subtitulos para peliculas y series automaticamente. Busca en multiples 
 
 Descarga `SubHunter.exe` desde [Releases](https://github.com/Hyzokaaa/SubHunter/releases) y ejecutalo directamente. No necesita Python.
 
+### Arch Linux (AUR)
+
+```bash
+yay -S subhunter
+```
+
+Tambien disponible con cualquier otro AUR helper (paru, etc.). Ver la [pagina del paquete en AUR](https://aur.archlinux.org/packages/subhunter).
+
 ### Desde el codigo fuente
 
 ```bash

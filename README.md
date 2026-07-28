@@ -27,6 +27,14 @@ Automatic subtitle downloader for movies and TV series. Searches multiple provid
 
 Download `SubHunter.exe` from [Releases](https://github.com/Hyzokaaa/SubHunter/releases) and run it directly. No Python required.
 
+### Arch Linux (AUR)
+
+```bash
+yay -S subhunter
+```
+
+Also available via any other AUR helper (paru, etc.). See the [AUR package page](https://aur.archlinux.org/packages/subhunter).
+
 ### From source
 
 ```bash

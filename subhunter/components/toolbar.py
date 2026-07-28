@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from subhunter.core.theme import Theme
+from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
 from subhunter.core.constants import LANGUAGES
 
 
@@ -28,7 +28,7 @@ class Toolbar(ctk.CTkFrame):
 
         btn_cfg = dict(
             width=120, height=32,
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=FONT_UI, size=12),
             fg_color=t.bg_input, hover_color=t.bg_card_hover,
             border_width=1, border_color=t.border,
             text_color=t.text, corner_radius=6,
@@ -54,7 +54,7 @@ class Toolbar(ctk.CTkFrame):
         self._lang_menu = ctk.CTkOptionMenu(
             left, values=list(LANGUAGES.keys()),
             variable=self.lang_var, width=115, height=32,
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=FONT_UI, size=12),
             fg_color=t.bg_input, button_color=t.accent_dim,
             button_hover_color=t.accent,
             dropdown_fg_color=t.bg_card, dropdown_hover_color=t.bg_card_hover,
@@ -64,7 +64,7 @@ class Toolbar(ctk.CTkFrame):
 
         self._rename_cb = ctk.CTkCheckBox(
             left, text="Auto-renombrar", variable=self.rename_var,
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             checkbox_width=16, checkbox_height=16,
             fg_color=t.accent, hover_color=t.accent_bright,
             border_color=t.text_dim, checkmark_color=t.bg_deep,
@@ -76,7 +76,7 @@ class Toolbar(ctk.CTkFrame):
             self, text="Descargar",
             command=lambda: self._on_download and self._on_download(),
             width=150, height=32,
-            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=13, weight="bold"),
             fg_color=t.accent_dim, hover_color=t.accent,
             text_color=t.bg_deep, corner_radius=6, state="disabled",
         )

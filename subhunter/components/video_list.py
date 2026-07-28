@@ -1,6 +1,6 @@
 import os
 import customtkinter as ctk
-from subhunter.core.theme import Theme
+from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
 from subhunter.core.constants import VIDEO_EXTENSIONS
 from .video_row import VideoRow
 from .context_menu import ContextMenu
@@ -38,13 +38,13 @@ class VideoList(ctk.CTkFrame):
 
         self._stats = ctk.CTkLabel(
             self._stats_frame, text="",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=t.text_dim, anchor="w",
         )
         self._stats.pack(side="left")
 
         btn_cfg = dict(
-            height=20, font=ctk.CTkFont(family="Segoe UI", size=10),
+            height=20, font=ctk.CTkFont(family=FONT_UI, size=10),
             fg_color=t.bg_input, hover_color=t.bg_card_hover,
             text_color=t.text_mid, corner_radius=4,
             border_width=1, border_color=t.border,
@@ -68,7 +68,7 @@ class VideoList(ctk.CTkFrame):
 
         self._clear_btn = ctk.CTkButton(
             self._path_frame, text="X", width=24, height=20,
-            font=ctk.CTkFont(family="Consolas", size=11, weight="bold"),
+            font=ctk.CTkFont(family=FONT_MONO, size=11, weight="bold"),
             fg_color="transparent", hover_color=t.red,
             text_color=t.text_dim, corner_radius=4,
             command=self.clear,
@@ -77,7 +77,7 @@ class VideoList(ctk.CTkFrame):
         self._path = ctk.CTkLabel(
             self._path_frame,
             text="  Selecciona una carpeta o archivos de video...",
-            font=ctk.CTkFont(family="Consolas", size=11),
+            font=ctk.CTkFont(family=FONT_MONO, size=11),
             text_color=t.text_dim, anchor="w",
         )
         self._path.pack(side="left", fill="x", expand=True, padx=(8, 0), pady=4)
@@ -156,18 +156,18 @@ class VideoList(ctk.CTkFrame):
 
         ctk.CTkLabel(
             self._empty, text="CC",
-            font=ctk.CTkFont(family="Consolas", size=36, weight="bold"),
+            font=ctk.CTkFont(family=FONT_MONO, size=36, weight="bold"),
             text_color=t.accent_dim,
         ).pack()
         ctk.CTkLabel(
             self._empty, text="Usa los botones para cargar videos",
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=FONT_UI, size=12),
             text_color=t.text_dim,
         ).pack(pady=(8, 0))
         ctk.CTkLabel(
             self._empty,
             text="Click derecho para mas opciones",
-            font=ctk.CTkFont(family="Segoe UI", size=10),
+            font=ctk.CTkFont(family=FONT_UI, size=10),
             text_color=t.border,
         ).pack(pady=(2, 0))
 

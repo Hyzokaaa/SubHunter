@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from subhunter.core.theme import Theme
+from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
 
 
 class StatusBar(ctk.CTkFrame):
@@ -11,14 +11,14 @@ class StatusBar(ctk.CTkFrame):
 
         self._status = ctk.CTkLabel(
             self, text="Listo",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=theme.text_dim, anchor="w",
         )
         self._status.pack(side="left")
 
         self._providers = ctk.CTkLabel(
             self, text="OpenSubtitles  |  Addic7ed  |  Podnapisi",
-            font=ctk.CTkFont(family="Consolas", size=9),
+            font=ctk.CTkFont(family=FONT_MONO, size=9),
             text_color=theme.provider, anchor="e",
         )
         self._providers.pack(side="right")

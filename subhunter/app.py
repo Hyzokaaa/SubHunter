@@ -3,7 +3,7 @@ import sys
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, PhotoImage
 
-from subhunter.core.theme import DARK, LIGHT
+from subhunter.core.theme import DARK, LIGHT, FONT_UI, FONT_MONO
 from subhunter.core.constants import LANGUAGES
 from subhunter.core.config import Config
 from subhunter.core.downloader import SubtitleDownloader
@@ -68,7 +68,7 @@ class SubHunterApp(ctk.CTk):
         self._icon.pack_propagate(False)
         self._icon_lbl = ctk.CTkLabel(
             self._icon, text="SH",
-            font=ctk.CTkFont(family="Consolas", size=14, weight="bold"),
+            font=ctk.CTkFont(family=FONT_MONO, size=14, weight="bold"),
             text_color=t.bg_deep,
         )
         self._icon_lbl.place(relx=0.5, rely=0.5, anchor="center")
@@ -77,13 +77,13 @@ class SubHunterApp(ctk.CTk):
         titles.pack(side="left")
         self._title = ctk.CTkLabel(
             titles, text="SubHunter",
-            font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=22, weight="bold"),
             text_color=t.text,
         )
         self._title.pack(anchor="w")
         self._subtitle = ctk.CTkLabel(
             titles, text="Subtitulos para peliculas y series, al instante.",
-            font=ctk.CTkFont(family="Segoe UI", size=11), text_color=t.text_dim,
+            font=ctk.CTkFont(family=FONT_UI, size=11), text_color=t.text_dim,
         )
         self._subtitle.pack(anchor="w")
 
@@ -93,7 +93,7 @@ class SubHunterApp(ctk.CTk):
 
         self._ver = ctk.CTkLabel(
             right, text=f"v{VERSION}",
-            font=ctk.CTkFont(family="Consolas", size=10),
+            font=ctk.CTkFont(family=FONT_MONO, size=10),
             text_color=t.accent_dim, fg_color=t.bg_input,
             corner_radius=4, width=36, height=18,
         )
@@ -103,7 +103,7 @@ class SubHunterApp(ctk.CTk):
             right, text="Claro" if self.is_dark else "Oscuro",
             command=self._toggle_theme,
             width=55, height=22,
-            font=ctk.CTkFont(family="Segoe UI", size=10),
+            font=ctk.CTkFont(family=FONT_UI, size=10),
             fg_color=t.bg_input, hover_color=t.bg_card_hover,
             text_color=t.text_mid, corner_radius=4,
             border_width=1, border_color=t.border,
@@ -113,7 +113,7 @@ class SubHunterApp(ctk.CTk):
         self._settings_btn = ctk.CTkButton(
             right, text="Config", command=self._open_settings,
             width=55, height=22,
-            font=ctk.CTkFont(family="Segoe UI", size=10),
+            font=ctk.CTkFont(family=FONT_UI, size=10),
             fg_color=t.bg_input, hover_color=t.bg_card_hover,
             text_color=t.text_mid, corner_radius=4,
             border_width=1, border_color=t.border,
@@ -368,16 +368,17 @@ class SubHunterApp(ctk.CTk):
         self._update_label = ctk.CTkLabel(
             self._update_bar,
             text=f"Nueva version v{version} disponible",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=t.bg_deep,
         )
         self._update_label.pack(side="left", padx=(16, 8))
 
+        can_auto_update = getattr(sys, 'frozen', False) and sys.platform == "win32"
         self._update_btn = ctk.CTkButton(
-            self._update_bar, text="Actualizar",
+            self._update_bar, text="Actualizar" if can_auto_update else "Ver release",
             command=self._do_update,
             width=90, height=22,
-            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            font=ctk.CTkFont(family=FONT_UI, size=10, weight="bold"),
             fg_color=t.bg_deep, hover_color=t.bg_card,
             text_color=t.accent, corner_radius=4,
         )
@@ -387,7 +388,7 @@ class SubHunterApp(ctk.CTk):
             self._update_bar, text="X",
             command=self._update_bar.destroy,
             width=24, height=22,
-            font=ctk.CTkFont(family="Consolas", size=11),
+            font=ctk.CTkFont(family=FONT_MONO, size=11),
             fg_color="transparent", hover_color=t.accent,
             text_color=t.bg_deep, corner_radius=4,
         ).pack(side="right", padx=8)

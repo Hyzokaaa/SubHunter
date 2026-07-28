@@ -1,7 +1,7 @@
 import re
 import os
 import customtkinter as ctk
-from subhunter.core.theme import Theme
+from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
 
 
 class VideoRow(ctk.CTkFrame):
@@ -48,7 +48,7 @@ class VideoRow(ctk.CTkFrame):
         if ep:
             self._badge = ctk.CTkLabel(
                 self, text=ep,
-                font=ctk.CTkFont(family="Consolas", size=10, weight="bold"),
+                font=ctk.CTkFont(family=FONT_MONO, size=10, weight="bold"),
                 text_color=t.accent, fg_color=t.badge_bg,
                 corner_radius=3, width=46, height=18,
             )
@@ -61,7 +61,7 @@ class VideoRow(ctk.CTkFrame):
 
         self._name = ctk.CTkLabel(
             self, text=display, anchor="w",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=FONT_UI, size=11),
             text_color=t.text,
         )
         self._name.pack(side="left", fill="x", expand=True, padx=(0, 6))
@@ -69,7 +69,7 @@ class VideoRow(ctk.CTkFrame):
         # Status dot + label (no extra frame)
         self._status_text = ctk.CTkLabel(
             self, text="Pendiente", width=85, anchor="e",
-            font=ctk.CTkFont(family="Segoe UI", size=10),
+            font=ctk.CTkFont(family=FONT_UI, size=10),
             text_color=t.text_dim,
         )
         self._status_text.pack(side="right", padx=(0, 8))

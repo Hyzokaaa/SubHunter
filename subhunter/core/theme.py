@@ -1,4 +1,15 @@
+import sys
 from dataclasses import dataclass
+
+if sys.platform == "win32":
+    FONT_UI = "Segoe UI"
+    FONT_MONO = "Consolas"
+elif sys.platform == "darwin":
+    FONT_UI = "SF Pro"
+    FONT_MONO = "SF Mono"
+else:
+    FONT_UI = "sans-serif"
+    FONT_MONO = "monospace"
 
 
 @dataclass

@@ -1,5 +1,5 @@
 import tkinter as tk
-from subhunter.core.theme import Theme
+from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
 
 
 class ContextMenu:
@@ -24,7 +24,7 @@ class ContextMenu:
             bg=t.bg_card, fg=t.text,
             activebackground=t.accent_dim, activeforeground=t.bg_deep,
             relief="flat", bd=1,
-            font=("Segoe UI", 10),
+            font=(FONT_UI, 10),
         )
 
         for label, cb in self._actions.items():

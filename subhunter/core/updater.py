@@ -74,15 +74,15 @@ class Updater:
     def _download_and_replace(self, download_url):
         new_exe = None
         try:
-            # Determine current exe path
-            if getattr(sys, 'frozen', False):
-                current_exe = sys.executable
-            else:
+            # Self-update only works on Windows frozen exe
+            if not getattr(sys, 'frozen', False) or sys.platform != "win32":
                 import webbrowser
                 webbrowser.open(download_url)
                 if self._on_download_done:
                     self._on_download_done()
                 return
+
+            current_exe = sys.executable
 
             exe_dir = os.path.dirname(current_exe)
             exe_name = os.path.basename(current_exe)
