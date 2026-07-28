@@ -21,6 +21,9 @@ subhunter = "subhunter.app:main"
 Homepage = "https://github.com/Hyzokaaa/SubHunter"
 Issues = "https://github.com/Hyzokaaa/SubHunter/issues"
 
+[tool.setuptools.packages.find]
+include = ["subhunter*"]
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
