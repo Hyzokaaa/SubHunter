@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SubHunter — Automatic Subtitle Downloader</title>
+<meta name="description" content="Download subtitles for movies and TV series automatically. Smart hash matching, multiple providers, cross-platform.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+:root {
+  --bg: #0a0a0f;
+  --bg-card: #12121a;
+  --bg-surface: #0e0e16;
+  --gold: #d4a54a;
+  --gold-bright: #f0c960;
+  --gold-dim: #8a6d2e;
+  --text: #e8e4dc;
+  --text-dim: #6b6760;
+  --text-mid: #9a958c;
+  --border: #2a2a35;
+  --green: #4a9e6a;
+  --red: #c44d4d;
+}
+
+html { scroll-behavior: smooth }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== GRAIN OVERLAY ===== */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ===== CROSSHAIR CSS ELEMENT ===== */
+.crosshair {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  pointer-events: none;
+  opacity: 0.08;
+}
+.crosshair::before, .crosshair::after {
+  content: '';
+  position: absolute;
+}
+.crosshair::before {
+  top: 50%; left: 0; right: 0;
+  height: 1px;
+  background: var(--gold);
+  transform: translateY(-50%);
+}
+.crosshair::after {
+  left: 50%; top: 0; bottom: 0;
+  width: 1px;
+  background: var(--gold);
+  transform: translateX(-50%);
+}
+.crosshair-ring {
+  position: absolute;
+  inset: 15px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+}
+.crosshair-dot {
+  position: absolute;
+  width: 4px; height: 4px;
+  background: var(--gold);
+  border-radius: 50%;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ===== SCROLL REVEAL ===== */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.1s }
+.reveal-delay-2 { transition-delay: 0.2s }
+.reveal-delay-3 { transition-delay: 0.3s }
+.reveal-delay-4 { transition-delay: 0.4s }
+.reveal-delay-5 { transition-delay: 0.5s }
+.reveal-delay-6 { transition-delay: 0.6s }
+
+/* ===== NAVIGATION ===== */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 1.2rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(42, 42, 53, 0.5);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.nav-icon {
+  width: 32px; height: 32px;
+  background: var(--gold);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: var(--bg);
+  letter-spacing: -0.5px;
+}
+
+.nav-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  color: var(--text);
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.nav-links a {
+  color: var(--text-mid);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: color 0.3s;
+}
+.nav-links a:hover { color: var(--gold) }
+
+.nav-cta {
+  background: var(--gold-dim) !important;
+  color: var(--bg) !important;
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  font-weight: 700 !important;
+  transition: background 0.3s !important;
+}
+.nav-cta:hover { background: var(--gold) !important }
+
+/* ===== HERO ===== */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8rem 2rem 4rem;
+  overflow: hidden;
+}
+
+/* Radial glow behind hero */
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(212,165,74,0.06) 0%, transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Decorative crosshairs */
+.hero .crosshair:nth-child(1) { top: 15%; left: 8%; opacity: 0.05; width: 80px; height: 80px }
+.hero .crosshair:nth-child(2) { top: 25%; right: 12%; opacity: 0.04; width: 140px; height: 140px }
+.hero .crosshair:nth-child(3) { bottom: 20%; left: 15%; opacity: 0.03; width: 100px; height: 100px }
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(212, 165, 74, 0.08);
+  border: 1px solid rgba(212, 165, 74, 0.2);
+  border-radius: 100px;
+  padding: 0.4rem 1rem;
+  font-size: 0.75rem;
+  color: var(--gold);
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+}
+
+.hero-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: pulse 2s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1 }
+  50% { opacity: 0.3 }
+}
+
+.hero h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 10vw, 8rem);
+  letter-spacing: 6px;
+  line-height: 0.9;
+  text-align: center;
+  color: var(--text);
+  position: relative;
+}
+
+.hero h1 span {
+  color: var(--gold);
+}
+
+.hero-sub {
+  font-size: 1.15rem;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 520px;
+  margin: 1.5rem auto 2.5rem;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--gold);
+  color: var(--bg);
+  padding: 0.9rem 2rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+  transition: all 0.3s;
+  border: 2px solid var(--gold);
+}
+.btn-primary:hover {
+  background: var(--gold-bright);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(212, 165, 74, 0.25);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: transparent;
+  color: var(--text);
+  padding: 0.9rem 2rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+  transition: all 0.3s;
+  border: 2px solid var(--border);
+}
+.btn-secondary:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold);
+}
+
+.btn-icon {
+  width: 18px; height: 18px;
+  fill: currentColor;
+}
+
+.hero-screenshot {
+  margin-top: 4rem;
+  max-width: 900px;
+  width: 100%;
+  position: relative;
+}
+
+.hero-screenshot img {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,165,74,0.05);
+}
+
+/* Glow under screenshot */
+.hero-screenshot::after {
+  content: '';
+  position: absolute;
+  bottom: -40px; left: 10%; right: 10%;
+  height: 80px;
+  background: radial-gradient(ellipse, rgba(212,165,74,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ===== SECTION COMMON ===== */
+section {
+  padding: 6rem 2rem;
+  position: relative;
+}
+
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  letter-spacing: 3px;
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+
+.section-desc {
+  color: var(--text-dim);
+  max-width: 560px;
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ===== FEATURES ===== */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 3rem;
+}
+
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s;
+}
+
+.feature-card:hover {
+  border-color: var(--gold-dim);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.feature-card:hover::before { opacity: 1 }
+
+.feature-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.5rem;
+  color: rgba(212, 165, 74, 0.1);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.feature-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  margin-bottom: 0.6rem;
+}
+
+.feature-desc {
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* ===== HOW IT WORKS ===== */
+.how-section {
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  margin-top: 3rem;
+  position: relative;
+}
+
+/* Connecting line between steps */
+.steps::before {
+  content: '';
+  position: absolute;
+  top: 40px;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), var(--gold-dim), var(--border));
+}
+
+.step {
+  text-align: center;
+  position: relative;
+}
+
+.step-num {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--gold-dim);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 1.5rem;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  color: var(--gold);
+  position: relative;
+  z-index: 1;
+  transition: all 0.3s;
+}
+
+.step:hover .step-num {
+  border-color: var(--gold);
+  box-shadow: 0 0 30px rgba(212, 165, 74, 0.15);
+}
+
+.step-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.step-desc {
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+/* ===== PROVIDERS ===== */
+.providers-bar {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-top: 3rem;
+  padding: 2rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.provider {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+.provider:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold);
+}
+
+/* ===== INSTALL ===== */
+.install-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 3rem;
+}
+
+.install-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  transition: all 0.3s;
+}
+.install-card:hover {
+  border-color: var(--gold-dim);
+}
+
+.install-platform {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  margin-bottom: 0.75rem;
+}
+
+.install-method {
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--gold-bright);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* ===== CTA ===== */
+.cta-section {
+  text-align: center;
+  position: relative;
+}
+
+.cta-section::before {
+  content: '';
+  position: absolute;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(212,165,74,0.04) 0%, transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.cta-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 6vw, 5rem);
+  letter-spacing: 4px;
+  margin-bottom: 1rem;
+}
+
+.cta-title span { color: var(--gold) }
+
+/* ===== FOOTER ===== */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.footer-name {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.footer-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.3s;
+}
+.footer-links a:hover { color: var(--gold) }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  nav { padding: 1rem }
+  .nav-links { display: none }
+  .hero { padding: 7rem 1.5rem 3rem }
+  .features-grid { grid-template-columns: 1fr }
+  .steps { grid-template-columns: 1fr; gap: 3rem }
+  .steps::before { display: none }
+  .install-grid { grid-template-columns: 1fr }
+  .footer-inner { flex-direction: column; gap: 1rem }
+  .hero-actions { flex-direction: column }
+  .providers-bar { gap: 0.75rem }
+  section { padding: 4rem 1.5rem }
+}
+
+@media (max-width: 480px) {
+  .hero h1 { letter-spacing: 3px }
+  .section-title { letter-spacing: 2px }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-brand">
+    <div class="nav-icon">SH</div>
+    <span class="nav-name">SUBHUNTER</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how">How it works</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/Hyzokaaa/SubHunter" target="_blank">GitHub</a>
+    <a href="https://github.com/Hyzokaaa/SubHunter/releases/latest" class="nav-cta" target="_blank">Download</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="crosshair"><div class="crosshair-ring"></div><div class="crosshair-dot"></div></div>
+  <div class="crosshair"><div class="crosshair-ring"></div><div class="crosshair-dot"></div></div>
+  <div class="crosshair"><div class="crosshair-ring"></div><div class="crosshair-dot"></div></div>
+
+  <div class="hero-badge reveal">Open Source &bull; Cross-Platform &bull; Free</div>
+
+  <h1 class="reveal reveal-delay-1">SUB<span>HUNTER</span></h1>
+
+  <p class="hero-sub reveal reveal-delay-2">
+    Automatic subtitle downloader for movies and TV series.
+    Smart hash matching. Multiple providers. One click.
+  </p>
+
+  <div class="hero-actions reveal reveal-delay-3">
+    <a href="https://github.com/Hyzokaaa/SubHunter/releases/latest" class="btn-primary" target="_blank">
+      <svg class="btn-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-5H8l4-5.5v5h3l-4 5.5z"/></svg>
+      Download for Windows
+    </a>
+    <a href="https://github.com/Hyzokaaa/SubHunter" class="btn-secondary" target="_blank">
+      <svg class="btn-icon" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23.96-.27 1.98-.4 3-.4s2.04.13 3 .4c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58C20.56 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      View on GitHub
+    </a>
+  </div>
+
+  <div class="hero-screenshot reveal reveal-delay-4">
+    <img src="screenshot.png" alt="SubHunter application screenshot" loading="lazy">
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="reveal">
+      <p class="section-label">// Features</p>
+      <h2 class="section-title">BUILT FOR PRECISION</h2>
+      <p class="section-desc">
+        SubHunter uses video file hashing to find the exact subtitle for your release.
+        No more timing issues. No more wrong versions.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-num">01</div>
+        <div class="feature-title">Hash-based matching</div>
+        <div class="feature-desc">Computes a unique hash of your video file to find the subtitle that syncs perfectly with your exact release.</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-num">02</div>
+        <div class="feature-title">Provider picker</div>
+        <div class="feature-desc">Shows all available subtitles from every provider with match scores. You choose which one to download.</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-num">03</div>
+        <div class="feature-title">Auto-fallback</div>
+        <div class="feature-desc">If a provider fails, SubHunter automatically tries the next best option. No manual intervention needed.</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-4">
+        <div class="feature-num">04</div>
+        <div class="feature-title">11 languages</div>
+        <div class="feature-desc">Spanish, English, Portuguese, French, Italian, German, Chinese, Japanese, Korean, Arabic, and Russian.</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-5">
+        <div class="feature-num">05</div>
+        <div class="feature-title">Auto-update</div>
+        <div class="feature-desc">Notifies you when a new version is available and updates itself automatically. Always stay current.</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-6">
+        <div class="feature-num">06</div>
+        <div class="feature-title">Dark &amp; Light modes</div>
+        <div class="feature-desc">Cinematic dark theme with golden accents by default. Switch to light mode when you prefer it.</div>
+      </div>
+    </div>
+
+    <div class="providers-bar reveal">
+      <span class="provider">OpenSubtitles.com</span>
+      <span class="provider">OpenSubtitles.org</span>
+      <span class="provider">Subtitulamos.tv</span>
+      <span class="provider">Addic7ed</span>
+      <span class="provider">Gestdown</span>
+      <span class="provider">Podnapisi</span>
+      <span class="provider">TVSubtitles</span>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="how-section">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <p class="section-label">// How it works</p>
+      <h2 class="section-title">THREE STEPS. THAT'S IT.</h2>
+    </div>
+
+    <div class="steps">
+      <div class="step reveal reveal-delay-1">
+        <div class="step-num">1</div>
+        <div class="step-title">Load your videos</div>
+        <div class="step-desc">Drop a folder or select individual files. SubHunter detects all video formats automatically.</div>
+      </div>
+      <div class="step reveal reveal-delay-2">
+        <div class="step-num">2</div>
+        <div class="step-title">Pick your subtitles</div>
+        <div class="step-desc">SubHunter searches all providers and shows you every available option with quality scores.</div>
+      </div>
+      <div class="step reveal reveal-delay-3">
+        <div class="step-num">3</div>
+        <div class="step-title">Download</div>
+        <div class="step-desc">One click. The subtitle is saved next to your video, perfectly named for any media player.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install">
+  <div class="container">
+    <div class="reveal">
+      <p class="section-label">// Install</p>
+      <h2 class="section-title">GET SUBHUNTER</h2>
+      <p class="section-desc">Available on Windows, Linux, and macOS. Choose your method.</p>
+    </div>
+
+    <div class="install-grid">
+      <div class="install-card reveal reveal-delay-1">
+        <div class="install-platform">WINDOWS</div>
+        <div class="install-method">Portable executable. Download and run. No Python required.</div>
+        <a href="https://github.com/Hyzokaaa/SubHunter/releases/latest" class="btn-primary" style="width:100%;justify-content:center;font-size:0.85rem;padding:0.7rem" target="_blank">Download .exe</a>
+      </div>
+      <div class="install-card reveal reveal-delay-2">
+        <div class="install-platform">ARCH LINUX</div>
+        <div class="install-method">Available on the AUR. Install with your preferred helper.</div>
+        <div class="code-block">yay -S subhunter</div>
+      </div>
+      <div class="install-card reveal reveal-delay-3">
+        <div class="install-platform">FROM SOURCE</div>
+        <div class="install-method">Clone and run. Requires Python 3.10+.</div>
+        <div class="code-block">pip install customtkinter subliminal babelfish<br>python main.py</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container reveal">
+    <h2 class="cta-title">STOP <span>HUNTING</span><br>MANUALLY</h2>
+    <p class="section-desc" style="margin:0 auto 2.5rem;text-align:center">
+      Open source. Free forever. Built by people who got tired of searching for subtitles.
+    </p>
+    <div class="hero-actions" style="justify-content:center">
+      <a href="https://github.com/Hyzokaaa/SubHunter/releases/latest" class="btn-primary" target="_blank">
+        <svg class="btn-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-5H8l4-5.5v5h3l-4 5.5z"/></svg>
+        Download SubHunter
+      </a>
+      <a href="https://github.com/Hyzokaaa/SubHunter" class="btn-secondary" target="_blank">
+        Star on GitHub
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <div class="nav-icon" style="width:24px;height:24px;font-size:0.55rem">SH</div>
+      <span class="footer-name">SUBHUNTER</span>
+      <span style="color:var(--text-dim);font-size:0.8rem">&bull; MIT License</span>
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com/Hyzokaaa/SubHunter" target="_blank">GitHub</a>
+      <a href="https://github.com/Hyzokaaa/SubHunter/releases" target="_blank">Releases</a>
+      <a href="https://github.com/Hyzokaaa/SubHunter/issues" target="_blank">Issues</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Scroll reveal
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target) } })
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+// Parallax crosshairs on mouse move
+document.addEventListener('mousemove', (e) => {
+  const cx = e.clientX / window.innerWidth - 0.5;
+  const cy = e.clientY / window.innerHeight - 0.5;
+  document.querySelectorAll('.hero .crosshair').forEach((c, i) => {
+    const speed = (i + 1) * 15;
+    c.style.transform = `translate(${cx * speed}px, ${cy * speed}px)`;
+  });
+});
+</script>
+</body>
+</html>
