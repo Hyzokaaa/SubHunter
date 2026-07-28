@@ -72,12 +72,12 @@ class Updater:
             pass
 
     def _download_and_replace(self, download_url):
+        new_exe = None
         try:
             # Determine current exe path
             if getattr(sys, 'frozen', False):
                 current_exe = sys.executable
             else:
-                # Running from source — can't self-update, open browser instead
                 import webbrowser
                 webbrowser.open(download_url)
                 if self._on_download_done:
@@ -86,18 +86,24 @@ class Updater:
 
             exe_dir = os.path.dirname(current_exe)
             exe_name = os.path.basename(current_exe)
-            new_exe = os.path.join(exe_dir, f"{exe_name}.new")
+            new_exe = os.path.join(exe_dir, f"{exe_name}.update")
 
-            # Download with progress
+            # Download with progress — no timeout on read, only on connect
             req = urllib.request.Request(download_url, headers={"User-Agent": "SubHunter"})
-            resp = urllib.request.urlopen(req, timeout=30)
+            resp = urllib.request.urlopen(req, timeout=15)
+
+            # Follow redirect to actual file URL
+            actual_url = resp.geturl()
+            resp.close()
+            req2 = urllib.request.Request(actual_url, headers={"User-Agent": "SubHunter"})
+            resp = urllib.request.urlopen(req2, timeout=15)
+
             total = int(resp.headers.get('Content-Length', 0))
             downloaded = 0
-            chunk_size = 65536
 
             with open(new_exe, 'wb') as f:
                 while True:
-                    chunk = resp.read(chunk_size)
+                    chunk = resp.read(65536)
                     if not chunk:
                         break
                     f.write(chunk)
@@ -107,35 +113,87 @@ class Updater:
 
             resp.close()
 
-            # Create updater .bat script
-            bat_path = os.path.join(tempfile.gettempdir(), "subhunter_update.bat")
-            bat_content = f'''@echo off
-echo Actualizando SubHunter...
-:wait
-ping 127.0.0.1 -n 2 > nul
-del "{current_exe}" 2>nul
-if exist "{current_exe}" goto wait
-move "{new_exe}" "{current_exe}"
-start "" "{current_exe}"
-del "%~f0"
-'''
-            with open(bat_path, 'w') as f:
-                f.write(bat_content)
+            # Verify download is complete
+            actual_size = os.path.getsize(new_exe)
+            if total > 0 and actual_size != total:
+                raise RuntimeError(f"Download incompleto: {actual_size}/{total} bytes")
+
+            # Minimum size check (should be at least 10MB for a PyInstaller exe)
+            if actual_size < 10_000_000:
+                raise RuntimeError(f"Archivo muy pequeno: {actual_size} bytes")
 
             if self._on_download_done:
                 self._on_download_done()
 
-            # Launch the bat and exit
+            # Get the PID of the current process so the updater script
+            # can wait for BOTH the child (this process) and the parent
+            # bootloader process to fully exit before replacing the exe.
+            # In PyInstaller onefile mode, the parent bootloader cleans up
+            # the _MEI temp folder after the child exits. If we launch the
+            # new exe before the parent finishes, extraction can fail.
+            current_pid = os.getpid()
+            exe_name_only = os.path.splitext(exe_name)[0]
+
+            # Create PowerShell updater script
+            ps_path = os.path.join(tempfile.gettempdir(), "subhunter_update.ps1")
+            # Escape backslashes for PowerShell
+            cur = current_exe.replace("'", "''")
+            new = new_exe.replace("'", "''")
+            ps_content = f"""
+# Wait for the current application process (and its parent bootloader)
+# to fully exit. The PyInstaller onefile bootloader is a parent process
+# that cleans up _MEI temp files after the child exits.
+$exeName = '{exe_name_only}'
+for ($i = 0; $i -lt 30; $i++) {{
+    $procs = Get-Process -Name $exeName -ErrorAction SilentlyContinue
+    if (-not $procs) {{ break }}
+    Start-Sleep -Seconds 1
+}}
+
+# Extra safety pause for file handle release
+Start-Sleep -Seconds 2
+
+# Delete old exe with retry
+for ($i = 0; $i -lt 20; $i++) {{
+    try {{
+        if (Test-Path '{cur}') {{
+            Remove-Item '{cur}' -Force -ErrorAction Stop
+        }}
+        break
+    }} catch {{
+        Start-Sleep -Seconds 1
+    }}
+}}
+
+# Move new exe into place
+Move-Item -Path '{new}' -Destination '{cur}' -Force
+
+# Wait for filesystem to settle
+Start-Sleep -Seconds 1
+
+# Launch the new exe with PYINSTALLER_RESET_ENVIRONMENT so the
+# bootloader unpacks to a fresh _MEI folder and resets all internal
+# environment variables (avoids reusing stale _MEI paths).
+$env:PYINSTALLER_RESET_ENVIRONMENT = '1'
+Start-Process '{cur}'
+
+# Clean up this script
+Remove-Item $MyInvocation.MyCommand.Path -Force
+"""
+            with open(ps_path, 'w', encoding='utf-8') as f:
+                f.write(ps_content)
+
+            # Launch PowerShell updater and exit
             subprocess.Popen(
-                ['cmd', '/c', bat_path],
+                ['powershell', '-ExecutionPolicy', 'Bypass',
+                 '-WindowStyle', 'Hidden', '-File', ps_path],
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
             os._exit(0)
 
         except Exception as e:
-            # Clean up failed download
             try:
-                if os.path.exists(new_exe):
+                if new_exe and os.path.exists(new_exe):
                     os.remove(new_exe)
             except Exception:
                 pass
