@@ -1,7 +1,9 @@
 import os
 import threading
+import traceback
 import subliminal
 from babelfish import Language
+from .logger import log
 
 # Configure subliminal cache (required for providers like subtitulamos)
 try:
@@ -64,6 +66,24 @@ class SubtitleDownloader:
         )
         thread.start()
 
+    @staticmethod
+    def _friendly_error(e):
+        msg = str(e).lower()
+        if "timeout" in msg or "timed out" in msg:
+            return "Timeout de conexion"
+        if "403" in msg or "forbidden" in msg:
+            return "Proveedor bloqueo acceso"
+        if "404" in msg or "not found" in msg:
+            return "No encontrado en proveedor"
+        if "connection" in msg or "resolve" in msg or "getaddrinfo" in msg:
+            return "Sin conexion al proveedor"
+        if "rate" in msg or "limit" in msg:
+            return "Limite de descargas alcanzado"
+        if "ssl" in msg or "certificate" in msg:
+            return "Error SSL"
+        short = str(e)[:40]
+        return short if short else "Error desconocido"
+
     def _build_kwargs(self):
         kwargs = {"providers": self.providers}
         if self.provider_configs:
@@ -86,8 +106,11 @@ class SubtitleDownloader:
         total = len(file_paths)
         downloaded = 0
         failed = 0
+        log.info(f"Download batch started: {total} files")
 
         for i, path in enumerate(file_paths):
+            fname = os.path.basename(path)
+            log.debug(f"Processing: {fname}")
             if self._on_item_status:
                 self._on_item_status(path, "searching")
 
@@ -103,17 +126,20 @@ class SubtitleDownloader:
 
                     provider = subs[video][0].provider_name
                     downloaded += 1
+                    log.info(f"OK: {fname} from {provider}")
                     if self._on_item_status:
                         self._on_item_status(path, "downloaded", provider)
                 else:
                     failed += 1
+                    log.warning(f"Not found: {fname}")
                     if self._on_item_status:
                         self._on_item_status(path, "not_found")
 
-            except Exception:
+            except Exception as e:
                 failed += 1
+                log.error(f"Error: {fname} — {e}\n{traceback.format_exc()}")
                 if self._on_item_status:
-                    self._on_item_status(path, "error")
+                    self._on_item_status(path, "error", self._friendly_error(e))
 
             if self._on_progress:
                 self._on_progress((i + 1) / total)
@@ -125,8 +151,11 @@ class SubtitleDownloader:
         """Search all providers, return results grouped by filepath."""
         results = {}
         total = len(file_paths)
+        log.info(f"Search started: {total} files")
 
         for i, path in enumerate(file_paths):
+            fname = os.path.basename(path)
+            log.debug(f"Searching: {fname}")
             if self._on_item_status:
                 self._on_item_status(path, "searching")
 
@@ -146,16 +175,20 @@ class SubtitleDownloader:
                 results[path] = scored
 
                 if scored:
+                    providers = ", ".join(set(s[2] for s in scored))
+                    log.info(f"Found {len(scored)} subs for {fname}: [{providers}]")
                     if self._on_item_status:
                         self._on_item_status(path, "found", len(scored))
                 else:
+                    log.warning(f"No subs found for {fname}")
                     if self._on_item_status:
                         self._on_item_status(path, "not_found")
 
-            except Exception:
+            except Exception as e:
                 results[path] = []
+                log.error(f"Search error: {fname} — {e}\n{traceback.format_exc()}")
                 if self._on_item_status:
-                    self._on_item_status(path, "error")
+                    self._on_item_status(path, "error", self._friendly_error(e))
 
             if self._on_progress:
                 self._on_progress((i + 1) / total)
@@ -187,6 +220,7 @@ class SubtitleDownloader:
                         attempts.append(sub)
 
                 success = False
+                fname = os.path.basename(path)
                 for attempt in attempts:
                     try:
                         provider_pool.download_subtitle(attempt)
@@ -195,24 +229,27 @@ class SubtitleDownloader:
                             downloaded += 1
                             provider = attempt.provider_name
                             if attempt is not chosen_sub:
-                                # Fallback was used
+                                log.info(f"OK (fallback): {fname} from {provider}")
                                 if self._on_item_status:
                                     self._on_item_status(
                                         path, "downloaded",
                                         f"{provider} (fallback)"
                                     )
                             else:
+                                log.info(f"OK: {fname} from {provider}")
                                 if self._on_item_status:
                                     self._on_item_status(path, "downloaded", provider)
                             success = True
                             break
-                    except Exception:
+                    except Exception as e:
+                        log.debug(f"Provider {attempt.provider_name} failed for {fname}: {e}")
                         continue
 
                 if not success:
                     failed += 1
+                    log.error(f"All providers failed for {fname}")
                     if self._on_item_status:
-                        self._on_item_status(path, "error")
+                        self._on_item_status(path, "error", "Todos los proveedores fallaron")
 
                 if self._on_progress:
                     self._on_progress((i + 1) / total)
@@ -284,9 +321,9 @@ class SubtitleDownloader:
                 # Content failed to download, try next
                 self._run_alternative(file_path, skip_index + 1)
 
-        except Exception:
+        except Exception as e:
             if self._on_item_status:
-                self._on_item_status(file_path, "error")
+                self._on_item_status(file_path, "error", self._friendly_error(e))
             if self._on_complete:
                 self._on_complete(0, 1)
 

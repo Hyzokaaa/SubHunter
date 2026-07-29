@@ -230,11 +230,13 @@ class SubHunterApp(ctk.CTk):
             text, color = f"Alt {idx}/{total} ({provider})", t.green
         elif status == "no_more":
             text, color = "Sin mas opciones", t.red
+        elif status == "error":
+            reason = args[0] if args else "Error desconocido"
+            text, color = reason, t.red
         else:
             status_map = {
                 "searching":  ("Buscando...", t.amber),
                 "not_found":  ("No encontrado", t.red),
-                "error":      ("Error", t.red),
             }
             text, color = status_map.get(status, ("?", t.text_dim))
         self.after(0, lambda: row.set_status(text, color))
