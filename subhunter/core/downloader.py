@@ -11,6 +11,10 @@ try:
 except Exception:
     pass  # Already configured
 
+# Reduce default timeout from 10s to 5s for faster failures
+import socket
+socket.setdefaulttimeout(5)
+
 
 class SubtitleDownloader:
     """Handles subtitle search and download in a background thread."""
@@ -148,60 +152,85 @@ class SubtitleDownloader:
             self._on_complete(downloaded, failed)
 
     def _run_search(self, file_paths, on_results):
-        """Search all providers, return results grouped by filepath."""
+        """Search all providers using a shared pool with reduced timeout."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import time
+
         results = {}
         total = len(file_paths)
         log.info(f"Search started: {total} files")
 
-        for i, path in enumerate(file_paths):
+        # Scan all videos first (fast, local)
+        videos = {}
+        for path in file_paths:
             fname = os.path.basename(path)
-            log.debug(f"Searching: {fname}")
-            if self._on_item_status:
-                self._on_item_status(path, "searching")
-
             try:
-                video = subliminal.scan_video(path)
-                all_subs = subliminal.list_subtitles(
-                    {video}, self.languages, **self._build_kwargs()
-                )
-
-                candidates = all_subs.get(video, [])
-                scored = []
-                for sub in candidates:
-                    score = subliminal.compute_score(sub, video)
-                    scored.append((sub, score, sub.provider_name))
-
-                scored.sort(key=lambda x: x[1], reverse=True)
-                results[path] = scored
-
-                if scored:
-                    providers = ", ".join(set(s[2] for s in scored))
-                    log.info(f"Found {len(scored)} subs for {fname}: [{providers}]")
-                    if self._on_item_status:
-                        self._on_item_status(path, "found", len(scored))
-                else:
-                    log.warning(f"No subs found for {fname}")
-                    if self._on_item_status:
-                        self._on_item_status(path, "not_found")
-
+                videos[path] = subliminal.scan_video(path)
             except Exception as e:
                 results[path] = []
-                log.error(f"Search error: {fname} — {e}\n{traceback.format_exc()}")
+                log.error(f"Scan error: {fname} — {e}")
                 if self._on_item_status:
                     self._on_item_status(path, "error", self._friendly_error(e))
 
-            if self._on_progress:
-                self._on_progress((i + 1) / total)
+        # Search with a single shared pool (reuses connections)
+        pool = subliminal.core.ProviderPool(
+            providers=self.providers,
+            provider_configs=self.provider_configs,
+        )
+
+        completed = 0
+        try:
+            for path, video in videos.items():
+                fname = os.path.basename(path)
+                log.debug(f"Searching: {fname}")
+                if self._on_item_status:
+                    self._on_item_status(path, "searching")
+
+                try:
+                    candidates = pool.list_subtitles(video, self.languages)
+                    scored = []
+                    for sub in candidates:
+                        score = subliminal.compute_score(sub, video)
+                        scored.append((sub, score, sub.provider_name))
+
+                    scored.sort(key=lambda x: x[1], reverse=True)
+                    results[path] = scored
+
+                    if scored:
+                        providers = ", ".join(set(s[2] for s in scored))
+                        log.info(f"Found {len(scored)} subs for {fname}: [{providers}]")
+                        if self._on_item_status:
+                            self._on_item_status(path, "found", len(scored))
+                    else:
+                        log.warning(f"No subs found for {fname}")
+                        if self._on_item_status:
+                            self._on_item_status(path, "not_found")
+
+                except Exception as e:
+                    results[path] = []
+                    log.error(f"Search error: {fname} — {e}")
+                    if self._on_item_status:
+                        self._on_item_status(path, "error", self._friendly_error(e))
+
+                completed += 1
+                if self._on_progress:
+                    self._on_progress(completed / total)
+        finally:
+            pool.terminate()
 
         if on_results:
             on_results(results)
 
     def _run_selection(self, selections, fallbacks=None):
         """Download specific subtitle objects chosen by user, with auto-fallback."""
+        import time
         total = len(selections)
         downloaded = 0
         failed = 0
+        failed_items = []
         fallbacks = fallbacks or {}
+
+        log.info(f"Download selection started: {total} files")
 
         provider_pool = subliminal.core.ProviderPool(
             providers=self.providers,
@@ -213,7 +242,6 @@ class SubtitleDownloader:
                 if self._on_item_status:
                     self._on_item_status(path, "searching")
 
-                # Build attempt list: chosen first, then fallbacks
                 attempts = [chosen_sub]
                 for sub, _score, _prov in fallbacks.get(path, []):
                     if sub is not chosen_sub:
@@ -246,15 +274,67 @@ class SubtitleDownloader:
                         continue
 
                 if not success:
-                    failed += 1
-                    log.error(f"All providers failed for {fname}")
-                    if self._on_item_status:
-                        self._on_item_status(path, "error", "Todos los proveedores fallaron")
+                    failed_items.append((path, chosen_sub))
+                    log.warning(f"First pass failed for {fname}, will retry")
 
                 if self._on_progress:
                     self._on_progress((i + 1) / total)
+
+                # Small delay between downloads to avoid rate limiting
+                time.sleep(0.5)
+
         finally:
             provider_pool.terminate()
+
+        # Retry failed items with a fresh provider pool
+        if failed_items:
+            log.info(f"Retrying {len(failed_items)} failed downloads with fresh pool")
+            time.sleep(2)
+
+            retry_pool = subliminal.core.ProviderPool(
+                providers=self.providers,
+                provider_configs=self.provider_configs,
+            )
+            try:
+                for path, chosen_sub in failed_items:
+                    fname = os.path.basename(path)
+                    if self._on_item_status:
+                        self._on_item_status(path, "searching")
+
+                    attempts = [chosen_sub]
+                    for sub, _score, _prov in fallbacks.get(path, []):
+                        if sub is not chosen_sub:
+                            attempts.append(sub)
+
+                    success = False
+                    for attempt in attempts:
+                        try:
+                            retry_pool.download_subtitle(attempt)
+                            if attempt.content:
+                                self._save_subtitle(path, attempt)
+                                downloaded += 1
+                                provider = attempt.provider_name
+                                log.info(f"OK (retry): {fname} from {provider}")
+                                if self._on_item_status:
+                                    self._on_item_status(
+                                        path, "downloaded",
+                                        f"{provider} (retry)"
+                                    )
+                                success = True
+                                break
+                        except Exception as e:
+                            log.debug(f"Retry: {attempt.provider_name} failed for {fname}: {e}")
+                            continue
+
+                    if not success:
+                        failed += 1
+                        log.error(f"All providers failed for {fname} (after retry)")
+                        if self._on_item_status:
+                            self._on_item_status(path, "error", "Todos los proveedores fallaron")
+
+                    time.sleep(0.5)
+            finally:
+                retry_pool.terminate()
 
         if self._on_complete:
             self._on_complete(downloaded, failed)

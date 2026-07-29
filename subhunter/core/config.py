@@ -15,8 +15,10 @@ DEFAULTS = {
         "subtitulamos": True,
         "addic7ed": True,
         "gestdown": True,
-        "podnapisi": True,
-        "tvsubtitles": True,
+        "bsplayer": True,
+        "subtis": True,
+        "podnapisi": False,
+        "tvsubtitles": False,
     },
     "opensubtitlescom_username": "",
     "opensubtitlescom_password": "",
@@ -30,6 +32,8 @@ PROVIDER_LABELS = {
     "gestdown": "Gestdown",
     "podnapisi": "Podnapisi",
     "tvsubtitles": "TVSubtitles",
+    "bsplayer": "BSPlayer",
+    "subtis": "Subtis",
 }
 
 
