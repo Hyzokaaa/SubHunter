@@ -17,7 +17,8 @@ LANGUAGES = {
     "Russian": "rus",
 }
 
-PROVIDERS = [
-    'opensubtitlescom', 'opensubtitles',
-    'addic7ed', 'podnapisi', 'tvsubtitles',
-]
+# Enabled on first run; the full list comes from providers.provider_catalog()
+DEFAULT_PROVIDERS = {
+    "opensubtitlescom", "opensubtitles", "animetosho_net", "subtitulamostv",
+    "gestdown", "yifysubtitles", "subtis",
+}

@@ -1,17 +1,55 @@
 [project]
 name = "subhunter"
-version = "1.4.0"
+version = "1.5.0"
 description = "Descarga subtitulos para peliculas y series automaticamente"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "Luis Miguel Lagos Xenes"},
 ]
 requires-python = ">=3.10"
+# subliminal itself is NOT a dependency: Bazarr's fork is bundled in subhunter/vendor
 dependencies = [
     "customtkinter>=5.2.0",
-    "subliminal>=2.7.0",
-    "babelfish>=0.6.0",
+    "babelfish==0.6.1",
+    "guessit==3.8.0",
+    "rebulk==3.2.0",
+    "enzyme==0.5.2",
+    "knowit==0.5.11",
+    "dogpile.cache==1.5.0",
+    "stevedore",
+    "appdirs",
+    "beautifulsoup4",
+    "chardet",
+    "pysrt",
+    "pysubs2==1.8.1",
+    "rarfile",
+    "cloudscraper<=1.2.58",
+    "decorator",
+    "dnspython",
+    "requests",
+    "pycountry",
+    "ftfy",
+    "lxml",
+    "fcache",
+    "fese",
+    "ffmpeg-python",
+    "json_tricks",
+    "tld",
+    "python-dateutil",
+    "pyyaml",
+    "emoji",
+    "Pillow",
+    "retry",
+    "six",
+    "unidecode",
+    "filetype",
+    "brotli",
+    "click",
+    "html5lib",
+    "textdistance",
+    "guess_language-spirit",
+    "python-anticaptcha",
 ]
 
 [project.scripts]
@@ -23,6 +61,9 @@ Issues = "https://github.com/Hyzokaaa/SubHunter/issues"
 
 [tool.setuptools.packages.find]
 include = ["subhunter*"]
+
+[tool.setuptools.package-data]
+subhunter = ["vendor/**/*"]
 
 [build-system]
 requires = ["setuptools>=68.0"]
