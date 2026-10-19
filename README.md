@@ -11,7 +11,9 @@ Automatic subtitle downloader for movies and TV series. Searches multiple provid
 - **Smart search** — uses video file hash to find the exact matching subtitle, not just the filename
 - **Provider picker** — shows all available subtitles from every provider and lets you choose which one to download
 - **Auto-fallback** — if the selected provider fails, automatically tries the next one
-- **7 providers** — OpenSubtitles.com, OpenSubtitles.org, Subtitulamos.tv, Addic7ed, Gestdown, Podnapisi, TVSubtitles
+- **60+ providers** — all of [Bazarr](https://github.com/morpheus65535/bazarr)'s providers (OpenSubtitles, SubDL, SubSource, SubX, Addic7ed, Subtitulamos.tv...), with fields for accounts/API keys where needed
+- **Anime support** — AnimeTosho.net subtitle tracks (Crunchyroll and other releases), matched via AniDB/TVDB without any API key
+- **Auto-sync** — shifts the downloaded subtitle to match a text track embedded in the video (requires ffmpeg)
 - **11 languages** — Spanish, English, Portuguese, French, Italian, German, Chinese, Japanese, Korean, Arabic, Russian
 - **Multi-language** — download subtitles in multiple languages in a single pass
 - **Auto-rename** — the .srt file is named identically to the video so your player picks it up automatically
@@ -116,4 +118,6 @@ Contributions are welcome. Feel free to open issues or submit pull requests.
 
 ## License
 
-[MIT](LICENSE)
+[GPL-3.0](LICENSE)
+
+SubHunter bundles [Bazarr](https://github.com/morpheus65535/bazarr)'s subtitle providers (`subliminal_patch`, `subzero` and its `subliminal` fork, GPL-3.0) in `subhunter/vendor/`. Versions up to 1.4 were released under the MIT License.
