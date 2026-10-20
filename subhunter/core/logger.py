@@ -35,6 +35,13 @@ def setup_logger():
         pass
 
     logger.addHandler(fh)
+
+    # Provider libraries: keep warnings/errors so a broken provider is
+    # distinguishable from "no subtitles found"
+    for name in ("subliminal", "subliminal_patch", "subzero"):
+        lib = logging.getLogger(name)
+        lib.setLevel(logging.WARNING)
+        lib.addHandler(fh)
     return logger
 
 

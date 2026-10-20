@@ -1,6 +1,24 @@
 import os
 import customtkinter as ctk
 from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
+from subhunter.core.providers import PROVIDER_INFO
+
+
+LANGUAGE_NAMES = {
+    "spa": "Espanol", "eng": "English", "por": "Portugues", "fra": "Francais",
+    "ita": "Italiano", "deu": "Deutsch", "zho": "Chinese", "jpn": "Japanese",
+    "kor": "Korean", "ara": "Arabic", "rus": "Russian",
+}
+VARIANT_NAMES = {("spa", "MX"): "Latino", ("spa", "ES"): "Espana", ("por", "BR"): "Brasil"}
+
+
+def _language_label(language):
+    country = getattr(getattr(language, "country", None), "alpha2", None)
+    key = (language.alpha3, country)
+    label = VARIANT_NAMES.get(key) or LANGUAGE_NAMES.get(language.alpha3, language.alpha3)
+    if getattr(language, "hi", False):
+        label += " (SDH)"
+    return label
 
 
 class SubtitlePicker(ctk.CTkToplevel):
@@ -18,7 +36,7 @@ class SubtitlePicker(ctk.CTkToplevel):
         self._selections = {}  # filepath -> IntVar (index into results list)
 
         self.title("Seleccionar subtitulos")
-        self.geometry("700x500")
+        self.geometry("900x560")
         self.minsize(600, 400)
         self.configure(fg_color=theme.bg_deep)
 
@@ -126,13 +144,13 @@ class SubtitlePicker(ctk.CTkToplevel):
 
             # Provider name
             ctk.CTkLabel(
-                row, text=provider, width=120, anchor="w",
+                row, text=PROVIDER_INFO.get(provider, (provider,))[0], width=130, anchor="w",
                 font=ctk.CTkFont(family=FONT_MONO, size=11, weight="bold"),
                 text_color=t.accent,
             ).pack(side="left", padx=(0, 8))
 
-            # Score bar
-            score_pct = min(100, int(score / 10))
+            # Score bar (score is already a 0-100 match percentage)
+            score_pct = max(0, min(100, int(score)))
             score_color = t.green if score_pct > 70 else t.amber if score_pct > 40 else t.red
 
             ctk.CTkLabel(
@@ -150,14 +168,30 @@ class SubtitlePicker(ctk.CTkToplevel):
                                      fg_color=score_color, corner_radius=3)
             bar_fill.pack(side="left")
 
-            # Best badge for first one
-            if i == 0:
-                ctk.CTkLabel(
-                    row, text="mejor", width=40,
-                    font=ctk.CTkFont(family=FONT_UI, size=9),
-                    text_color=t.bg_deep, fg_color=t.accent_dim,
-                    corner_radius=3,
-                ).pack(side="left", padx=(0, 4))
+            # Best badge for first one (empty placeholder keeps columns aligned)
+            ctk.CTkLabel(
+                row, text="mejor" if i == 0 else "", width=40,
+                font=ctk.CTkFont(family=FONT_UI, size=9),
+                text_color=t.bg_deep,
+                fg_color=t.accent_dim if i == 0 else "transparent",
+                corner_radius=3,
+            ).pack(side="left", padx=(0, 4))
+
+            # Language variant + release name, so e.g. Latino/Espana can be told apart
+            ctk.CTkLabel(
+                row, text=_language_label(sub.language), width=70, anchor="w",
+                font=ctk.CTkFont(family=FONT_UI, size=10, weight="bold"),
+                text_color=t.text_mid,
+            ).pack(side="left", padx=(4, 4))
+
+            release = getattr(sub, "release_info", None) or ""
+            if isinstance(release, (list, tuple)):
+                release = release[0] if release else ""
+            ctk.CTkLabel(
+                row, text=str(release)[:70], anchor="w",
+                font=ctk.CTkFont(family=FONT_UI, size=10),
+                text_color=t.text_dim,
+            ).pack(side="left", fill="x", expand=True)
 
         # Small padding at bottom
         ctk.CTkFrame(group, height=4, fg_color="transparent").pack()

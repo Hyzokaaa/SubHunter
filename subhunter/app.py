@@ -210,6 +210,7 @@ class SubHunterApp(ctk.CTk):
             auto_rename=self.toolbar.rename_var.get(),
             providers=self.config.get_active_providers() or None,
             provider_configs=self.config.get_provider_config(),
+            auto_sync=self.config.get("auto_sync", True),
         )
 
     def _update_row_status(self, path, status, *args):
