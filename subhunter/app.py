@@ -1,4 +1,5 @@
 import os
+import queue
 import sys
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, PhotoImage
@@ -7,6 +8,7 @@ from subhunter.core.theme import DARK, LIGHT, FONT_UI, FONT_MONO
 from subhunter.core.constants import LANGUAGES
 from subhunter.core.config import Config
 from subhunter.core.downloader import SubtitleDownloader
+from subhunter.core.logger import log
 from subhunter.core.updater import Updater, VERSION
 from subhunter.components import GlowBar, Toolbar, VideoList, StatusBar, SettingsPanel, SubtitlePicker
 
@@ -44,13 +46,34 @@ class SubHunterApp(ctk.CTk):
         self.is_dark = self.config.get("theme", "dark") == "dark"
         self.theme = DARK if self.is_dark else LIGHT
         self.is_downloading = False
+        self._ui_queue = queue.SimpleQueue()
 
         ctk.set_appearance_mode("dark" if self.is_dark else "light")
         self.configure(fg_color=self.theme.bg_deep)
 
         self._build()
         self._apply_config()
+        self._pump_ui_queue()
         self._check_updates()
+
+    # --- Thread bridge ---
+
+    def _call_soon(self, fn):
+        """Run fn on the Tk thread. Safe to call from worker threads, which
+        must never touch Tk themselves (not even self.after)."""
+        self._ui_queue.put(fn)
+
+    def _pump_ui_queue(self):
+        while True:
+            try:
+                fn = self._ui_queue.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                fn()
+            except Exception:
+                log.exception("UI callback failed")
+        self.after(50, self._pump_ui_queue)
 
     def _build(self):
         t = self.theme
@@ -240,7 +263,7 @@ class SubHunterApp(ctk.CTk):
                 "not_found":  ("No encontrado", t.red),
             }
             text, color = status_map.get(status, ("?", t.text_dim))
-        self.after(0, lambda: row.set_status(text, color))
+        self._call_soon(lambda: row.set_status(text, color))
 
     def _start_download(self):
         if self.is_downloading:
@@ -259,14 +282,14 @@ class SubHunterApp(ctk.CTk):
         dl.on_item_status(self._update_row_status)
 
         def on_progress(p):
-            self.after(0, lambda: self.progress.set(p))
+            self._call_soon(lambda: self.progress.set(p))
             idx = int(p * len(paths))
-            self.after(0, lambda: self.status_bar.set_text(
+            self._call_soon(lambda: self.status_bar.set_text(
                 f"Buscando {min(idx, len(paths))} de {len(paths)}..."
             ))
 
         def on_results(results):
-            self.after(0, lambda: self._show_picker(results))
+            self._call_soon(lambda: self._show_picker(results))
 
         dl.on_progress(on_progress)
         dl.search(paths, on_results=on_results)
@@ -300,10 +323,10 @@ class SubHunterApp(ctk.CTk):
         dl.on_item_status(self._update_row_status)
 
         def on_progress(p):
-            self.after(0, lambda: self.progress.set(p))
+            self._call_soon(lambda: self.progress.set(p))
 
         def on_complete(downloaded, failed):
-            self.after(0, lambda: self._download_done(downloaded, failed))
+            self._call_soon(lambda: self._download_done(downloaded, failed))
 
         dl.on_progress(on_progress)
         dl.on_complete(on_complete)
@@ -329,10 +352,10 @@ class SubHunterApp(ctk.CTk):
         dl.on_item_status(self._update_row_status)
 
         def on_complete(downloaded, failed):
-            self.after(0, lambda: self._download_done(downloaded, failed))
+            self._call_soon(lambda: self._download_done(downloaded, failed))
 
         def on_progress(p):
-            self.after(0, lambda: self.progress.set(p))
+            self._call_soon(lambda: self.progress.set(p))
 
         dl.on_progress(on_progress)
         dl.on_complete(on_complete)
@@ -354,7 +377,7 @@ class SubHunterApp(ctk.CTk):
     def _check_updates(self):
         updater = Updater()
         updater.on_update_available(
-            lambda ver, url: self.after(0, lambda: self._show_update_banner(ver, url))
+            lambda ver, url: self._call_soon(lambda: self._show_update_banner(ver, url))
         )
         updater.check()
 
@@ -403,21 +426,21 @@ class SubHunterApp(ctk.CTk):
         updater = Updater()
 
         def on_progress(pct):
-            self.after(0, lambda: self._update_label.configure(
+            self._call_soon(lambda: self._update_label.configure(
                 text=f"Descargando... {pct}%"
             ))
-            self.after(0, lambda: self.progress.set(pct / 100))
+            self._call_soon(lambda: self.progress.set(pct / 100))
 
         def on_done():
-            self.after(0, lambda: self._update_label.configure(
+            self._call_soon(lambda: self._update_label.configure(
                 text="Reiniciando..."
             ))
 
         def on_error(msg):
-            self.after(0, lambda: self._update_label.configure(
+            self._call_soon(lambda: self._update_label.configure(
                 text=f"Error: {msg[:40]}"
             ))
-            self.after(0, lambda: self._update_btn.configure(
+            self._call_soon(lambda: self._update_btn.configure(
                 state="normal", text="Reintentar"
             ))
 
