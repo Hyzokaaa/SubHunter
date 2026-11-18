@@ -13,7 +13,7 @@ from .anime import refine_anime
 from .logger import log
 from .metadata import fix_country_title, refine_ids
 from .providers import register_custom_providers
-from .sync import sync_to_embedded
+from .sync import sync_subtitle
 
 register_custom_providers()
 
@@ -37,7 +37,8 @@ class SubtitleDownloader:
     """Handles subtitle search and download in a background thread."""
 
     def __init__(self, lang_codes=None, auto_rename=True,
-                 providers=None, provider_configs=None, auto_sync=True):
+                 providers=None, provider_configs=None, auto_sync=True,
+                 audio_sync=True):
         if lang_codes is None:
             lang_codes = ["spa"]
         self.languages = set()
@@ -48,6 +49,7 @@ class SubtitleDownloader:
         self.lang_codes = list(lang_codes)
         self.auto_rename = auto_rename
         self.auto_sync = auto_sync
+        self.audio_sync = audio_sync
         self.providers = providers or []
         self.provider_configs = provider_configs or {}
         self._on_progress = None
@@ -171,7 +173,8 @@ class SubtitleDownloader:
         out = os.path.splitext(path)[0] + suffix + ext
         content = sub.content
         if self.auto_sync:
-            content = sync_to_embedded(path, content, fmt) or content
+            self._status(path, "syncing")
+            content =sync_subtitle(path, content, fmt, self.audio_sync) or content
         with open(out, "wb") as f:
             f.write(content)
         return out

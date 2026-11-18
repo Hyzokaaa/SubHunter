@@ -234,6 +234,7 @@ class SubHunterApp(ctk.CTk):
             providers=self.config.get_active_providers() or None,
             provider_configs=self.config.get_provider_config(),
             auto_sync=self.config.get("auto_sync", True),
+            audio_sync=self.config.get("audio_sync", True),
         )
 
     def _update_row_status(self, path, status, *args):
@@ -260,6 +261,7 @@ class SubHunterApp(ctk.CTk):
         else:
             status_map = {
                 "searching":  ("Buscando...", t.amber),
+                "syncing":    ("Sincronizando...", t.amber),
                 "not_found":  ("No encontrado", t.red),
             }
             text, color = status_map.get(status, ("?", t.text_dim))

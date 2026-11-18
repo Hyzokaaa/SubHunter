@@ -13,7 +13,7 @@ Automatic subtitle downloader for movies and TV series. Searches multiple provid
 - **Auto-fallback** — if the selected provider fails, automatically tries the next one
 - **60+ providers** — all of [Bazarr](https://github.com/morpheus65535/bazarr)'s providers (OpenSubtitles, SubDL, SubSource, SubX, Addic7ed, Subtitulamos.tv...), with fields for accounts/API keys where needed
 - **Anime support** — AnimeTosho.net subtitle tracks (Crunchyroll and other releases), matched via AniDB/TVDB without any API key
-- **Auto-sync** — shifts the downloaded subtitle to match a text track embedded in the video (requires ffmpeg)
+- **Auto-sync** — re-times the downloaded subtitle (offset and framerate) to a text track embedded in the video, or to the audio with [alass](https://github.com/kaegi/alass) when there is none (requires ffmpeg)
 - **11 languages** — Spanish, English, Portuguese, French, Italian, German, Chinese, Japanese, Korean, Arabic, Russian
 - **Multi-language** — download subtitles in multiple languages in a single pass
 - **Auto-rename** — the .srt file is named identically to the video so your player picks it up automatically

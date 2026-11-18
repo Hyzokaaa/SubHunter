@@ -13,7 +13,7 @@ Descarga subtitulos para peliculas y series automaticamente. Busca en multiples 
 - **Fallback automatico** — si el proveedor seleccionado falla, intenta automaticamente con el siguiente
 - **Mas de 60 proveedores** — todos los de [Bazarr](https://github.com/morpheus65535/bazarr) (OpenSubtitles, SubDL, SubSource, SubX, Addic7ed, Subtitulamos.tv...), con campos para cuentas/API keys cuando hacen falta
 - **Soporte de anime** — pistas de subtitulos de AnimeTosho.net (releases de Crunchyroll y otros), emparejadas via AniDB/TVDB sin API key
-- **Sincronizacion automatica** — ajusta el subtitulo descargado a la pista de texto incrustada en el video (requiere ffmpeg)
+- **Sincronizacion automatica** — ajusta el subtitulo descargado (desfase y framerate) a la pista de texto incrustada en el video, o al audio con [alass](https://github.com/kaegi/alass) si no hay ninguna (requiere ffmpeg)
 - **11 idiomas** — Espanol, English, Portugues, Francais, Italiano, Deutsch, Chinese, Japanese, Korean, Arabic, Russian
 - **Multi-idioma** — descarga subtitulos en varios idiomas de una sola pasada
 - **Auto-renombrar** — el .srt se nombra identico al video para que el reproductor lo detecte automaticamente

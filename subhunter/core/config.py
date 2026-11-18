@@ -15,6 +15,7 @@ DEFAULTS = {
     "default_language": "Espanol",
     "auto_rename": True,
     "auto_sync": True,
+    "audio_sync": True,
     "languages": ["Espanol"],
     # name -> enabled; providers missing here use DEFAULT_PROVIDERS
     "providers": {},
