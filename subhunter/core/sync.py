@@ -174,24 +174,37 @@ def _sync_audio(video_path, subs, fmt, ffmpeg, ffprobe):
     return synced
 
 
-def sync_subtitle(video_path, content, fmt, use_audio=True):
-    """Return content re-timed to the video, or None if not needed/possible."""
+def _decode(content):
+    try:
+        return content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return content.decode("cp1252", "replace")  # older Spanish/European subs
+
+
+def resync(video_path, content, fmt, use_audio=True):
+    """Re-time subtitle bytes to the video.
+    Returns (status, new_content): (SYNCED, bytes), (IN_SYNC, None) or (None, None)."""
     ffmpeg, ffprobe = _tool("ffmpeg"), _tool("ffprobe")
     if not ffmpeg or not ffprobe:
-        return None
+        return None, None
     try:
-        subs = pysubs2.SSAFile.from_string(content.decode("utf-8-sig", "replace"))
+        subs = pysubs2.SSAFile.from_string(_decode(content))
         tracks = _reference_tracks(video_path, ffprobe)
         result = _sync_embedded(video_path, subs, tracks, ffmpeg) if tracks else None
         if result == IN_SYNC:
-            return None
+            return IN_SYNC, None
         if result is None:
             if not use_audio:
-                return None
+                return None, None
             subs = _sync_audio(video_path, subs, fmt, ffmpeg, ffprobe)
             if subs is None:
-                return None
-        return subs.to_string(fmt if fmt in _SUB_FORMATS else "srt").encode("utf-8")
+                return None, None
+        return SYNCED, subs.to_string(fmt if fmt in _SUB_FORMATS else "srt").encode("utf-8")
     except Exception as e:
         logger.warning("Sync failed for %s: %s", os.path.basename(video_path), e)
-        return None
+        return None, None
+
+
+def sync_subtitle(video_path, content, fmt, use_audio=True):
+    """Return content re-timed to the video, or None if not needed/possible."""
+    return resync(video_path, content, fmt, use_audio)[1]

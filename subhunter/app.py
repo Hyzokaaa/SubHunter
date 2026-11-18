@@ -159,6 +159,7 @@ class SubHunterApp(ctk.CTk):
         self.video_list.pack(fill="both", expand=True, padx=pad, pady=(8, 0))
         self.video_list.on_download_selected(self._start_download)
         self.video_list.on_find_alternative(self._find_alternative)
+        self.video_list.on_sync_existing(self._sync_existing)
         self.video_list.on_list_changed(self._on_list_changed)
 
         # --- Progress ---
@@ -262,6 +263,10 @@ class SubHunterApp(ctk.CTk):
             status_map = {
                 "searching":  ("Buscando...", t.amber),
                 "syncing":    ("Sincronizando...", t.amber),
+                "synced":     ("Sincronizado", t.green),
+                "in_sync":    ("Ya sincronizado", t.green),
+                "sync_failed": ("No se pudo sincronizar", t.red),
+                "no_sub":     ("Sin subtitulo", t.red),
                 "not_found":  ("No encontrado", t.red),
             }
             text, color = status_map.get(status, ("?", t.text_dim))
@@ -362,6 +367,40 @@ class SubHunterApp(ctk.CTk):
         dl.on_progress(on_progress)
         dl.on_complete(on_complete)
         dl.download_alternative(filepath, skip_index)
+
+    def _sync_existing(self):
+        """Re-time the subtitles already next to the selected videos."""
+        if self.is_downloading:
+            return
+        paths = self.video_list.get_selected_paths()
+        if not paths:
+            messagebox.showinfo("SubHunter", "No hay videos seleccionados.")
+            return
+
+        self.is_downloading = True
+        self.toolbar.set_downloading(True)
+        self.progress.set(0)
+        self.status_bar.set_text(f"Sincronizando subtitulos de {len(paths)} videos...")
+
+        dl = self._build_downloader()
+        dl.on_item_status(self._update_row_status)
+
+        def on_progress(p):
+            self._call_soon(lambda: self.progress.set(p))
+
+        def on_complete(ok, failed):
+            self._call_soon(lambda: self._sync_done(ok, failed))
+
+        dl.on_progress(on_progress)
+        dl.on_complete(on_complete)
+        dl.sync_existing(paths)
+
+    def _sync_done(self, ok, failed):
+        self.is_downloading = False
+        self.toolbar.set_downloading(False)
+        self.status_bar.set_text(
+            f"Sincronizacion completada  --  {ok} listos  /  {failed} sin sincronizar"
+        )
 
     # --- Theme ---
 
