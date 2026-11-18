@@ -1,7 +1,7 @@
 import os
 import customtkinter as ctk
 from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
-from subhunter.core.constants import VIDEO_EXTENSIONS
+from subhunter.core.constants import VIDEO_EXTENSIONS, find_subtitles
 from .video_row import VideoRow
 from .context_menu import ContextMenu
 
@@ -16,6 +16,7 @@ class VideoList(ctk.CTkFrame):
 
         self._on_download_selected = None
         self._on_find_alternative = None
+        self._on_sync_existing = None
         self._on_list_changed = None
         self._alt_indices = {}  # track alternative index per filepath
 
@@ -27,6 +28,9 @@ class VideoList(ctk.CTkFrame):
 
     def on_find_alternative(self, cb):
         self._on_find_alternative = cb
+
+    def on_sync_existing(self, cb):
+        self._on_sync_existing = cb
 
     def on_list_changed(self, cb):
         self._on_list_changed = cb
@@ -100,6 +104,7 @@ class VideoList(ctk.CTkFrame):
         self._ctx = ContextMenu(self, t)
         self._ctx.add_action("Descargar seleccionados", self._ctx_download)
         self._ctx.add_action("Buscar alternativa (seleccionados)", self._ctx_alternative)
+        self._ctx.add_action("Sincronizar subtitulos existentes (seleccionados)", self._ctx_sync)
         self._ctx.add_action("---", None)
         self._ctx.add_action("Seleccionar todos", self._select_all)
         self._ctx.add_action("Deseleccionar todos", self._select_none)
@@ -115,6 +120,10 @@ class VideoList(ctk.CTkFrame):
     def _ctx_download(self):
         if self._on_download_selected:
             self._on_download_selected()
+
+    def _ctx_sync(self):
+        if self._on_sync_existing:
+            self._on_sync_existing()
 
     def _ctx_alternative(self):
         if self._on_find_alternative:
@@ -199,7 +208,7 @@ class VideoList(ctk.CTkFrame):
                 continue
 
             existing.add(norm)
-            has_sub = os.path.exists(os.path.splitext(fp)[0] + ".srt")
+            has_sub = bool(find_subtitles(fp))
             row = VideoRow(self._scroll, fp, t, has_sub=has_sub)
             row.pack(fill="x", padx=3, pady=1)
             row.bind("<Button-3>", self._on_right_click)
@@ -260,10 +269,7 @@ class VideoList(ctk.CTkFrame):
         self._refresh_stats()
 
     def _refresh_stats(self):
-        sub_count = sum(
-            1 for r in self.rows
-            if os.path.exists(os.path.splitext(r.filepath)[0] + ".srt")
-        )
+        sub_count = sum(1 for r in self.rows if find_subtitles(r.filepath))
         total = len(self.rows)
         self._stats.configure(
             text=f"{total} videos   {sub_count} con sub   {total - sub_count} pendientes"

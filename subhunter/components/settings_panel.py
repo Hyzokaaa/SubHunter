@@ -116,6 +116,17 @@ class SettingsPanel(ctk.CTkToplevel):
             text_color=t.text,
         ).pack(anchor="w", padx=12, pady=(0, 6))
 
+        self._audio_sync_var = ctk.BooleanVar(value=self.config.get("audio_sync", True))
+        ctk.CTkCheckBox(
+            scroll, text="Si no hay pista incrustada, sincronizar con el audio (~20 s por video)",
+            variable=self._audio_sync_var,
+            font=ctk.CTkFont(family=FONT_UI, size=11),
+            checkbox_width=16, checkbox_height=16,
+            fg_color=t.accent, hover_color=t.accent_bright,
+            border_color=t.text_dim, checkmark_color=t.bg_deep,
+            text_color=t.text,
+        ).pack(anchor="w", padx=12, pady=(0, 6))
+
         # === PROVEEDORES ===
         self._section(scroll, t, "Proveedores")
 
@@ -271,6 +282,7 @@ class SettingsPanel(ctk.CTkToplevel):
             if any(v and v.strip() for v in values.values())
         })
         self.config.set("auto_sync", self._sync_var.get())
+        self.config.set("audio_sync", self._audio_sync_var.get())
 
         self.config.save()
 

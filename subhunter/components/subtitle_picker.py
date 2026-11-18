@@ -1,4 +1,5 @@
 import os
+import tkinter
 import customtkinter as ctk
 from subhunter.core.theme import Theme, FONT_UI, FONT_MONO
 from subhunter.core.providers import PROVIDER_INFO
@@ -22,7 +23,14 @@ def _language_label(language):
 
 
 class SubtitlePicker(ctk.CTkToplevel):
-    """Dialog to pick which subtitle/provider to download per video."""
+    """Dialog to pick which subtitle/provider to download per video.
+
+    CustomTkinter widgets are expensive (each one is a canvas), so only the top
+    options per video are built up front and groups are added a few at a time.
+    """
+
+    VISIBLE = 5       # options shown per video before "show more"
+    GROUPS_PER_TICK = 2
 
     def __init__(self, parent, theme: Theme, results: dict, on_confirm=None):
         """
@@ -42,6 +50,7 @@ class SubtitlePicker(ctk.CTkToplevel):
 
         self.transient(parent)
         self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self._close)
 
         self._build(theme)
         self.after(50, self.focus_force)
@@ -76,9 +85,8 @@ class SubtitlePicker(ctk.CTkToplevel):
             scrollbar_button_hover_color=t.accent,
         )
         scroll.pack(fill="both", expand=True, padx=pad, pady=(0, 8))
-
-        for filepath, subs in self.results.items():
-            self._build_video_group(scroll, t, filepath, subs)
+        self._scroll = scroll
+        self._debounce_scrollbar(scroll)
 
         # Buttons
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -93,13 +101,45 @@ class SubtitlePicker(ctk.CTkToplevel):
         ).pack(side="right", padx=(6, 0))
 
         ctk.CTkButton(
-            btn_frame, text="Cancelar", command=self.destroy,
+            btn_frame, text="Cancelar", command=self._close,
             width=100, height=32,
             font=ctk.CTkFont(family=FONT_UI, size=12),
             fg_color=t.bg_input, hover_color=t.bg_card_hover,
             text_color=t.text, corner_radius=6,
             border_width=1, border_color=t.border,
         ).pack(side="right")
+
+        self._pending = list(self.results.items())
+        self._build_next_groups()
+
+    @staticmethod
+    def _debounce_scrollbar(scroll):
+        """CTkScrollbar.set redraws and calls update_idletasks on every canvas
+        change, i.e. once per widget added or removed: quadratic with many rows.
+        Coalesce those into one redraw."""
+        bar = scroll._scrollbar
+        pending = []
+
+        def redraw():
+            pending.clear()
+            if bar.winfo_exists():
+                bar._draw()
+
+        def lazy_set(start, end):
+            bar._start_value, bar._end_value = float(start), float(end)
+            if not pending:
+                pending.append(bar.after(15, redraw))
+
+        scroll._parent_canvas.configure(yscrollcommand=lazy_set)
+
+    def _build_next_groups(self):
+        if not self.winfo_exists():
+            return
+        for filepath, subs in self._pending[:self.GROUPS_PER_TICK]:
+            self._build_video_group(self._scroll, self.theme, filepath, subs)
+        self._pending = self._pending[self.GROUPS_PER_TICK:]
+        if self._pending:
+            self.after(1, self._build_next_groups)
 
     def _build_video_group(self, parent, t: Theme, filepath: str, subs: list):
         group = ctk.CTkFrame(parent, fg_color=t.bg_card, corner_radius=6,
@@ -130,71 +170,79 @@ class SubtitlePicker(ctk.CTkToplevel):
         var = ctk.IntVar(value=0)
         self._selections[filepath] = (var, subs)
 
-        for i, (sub, score, provider) in enumerate(subs):
-            row = ctk.CTkFrame(group, fg_color="transparent")
-            row.pack(fill="x", padx=8, pady=1)
+        options = ctk.CTkFrame(group, fg_color="transparent")
+        options.pack(fill="x")
+        for i, (sub, score, provider) in enumerate(subs[:self.VISIBLE]):
+            self._build_option(options, t, var, i, sub, score, provider)
 
-            rb = ctk.CTkRadioButton(
-                row, text="", variable=var, value=i,
-                width=18, height=18,
-                fg_color=t.accent, hover_color=t.accent_bright,
-                border_color=t.text_dim,
-            )
-            rb.pack(side="left", padx=(4, 6))
+        hidden = len(subs) - self.VISIBLE
+        if hidden > 0:
+            def show_more():
+                more.destroy()
+                for i, (sub, score, provider) in enumerate(subs[self.VISIBLE:], self.VISIBLE):
+                    self._build_option(options, t, var, i, sub, score, provider)
 
-            # Provider name
-            ctk.CTkLabel(
-                row, text=PROVIDER_INFO.get(provider, (provider,))[0], width=130, anchor="w",
-                font=ctk.CTkFont(family=FONT_MONO, size=11, weight="bold"),
-                text_color=t.accent,
-            ).pack(side="left", padx=(0, 8))
-
-            # Score bar (score is already a 0-100 match percentage)
-            score_pct = max(0, min(100, int(score)))
-            score_color = t.green if score_pct > 70 else t.amber if score_pct > 40 else t.red
-
-            ctk.CTkLabel(
-                row, text=f"{score_pct}%", width=35, anchor="e",
-                font=ctk.CTkFont(family=FONT_MONO, size=10),
-                text_color=score_color,
-            ).pack(side="left", padx=(0, 6))
-
-            bar_bg = ctk.CTkFrame(row, height=6, width=80, fg_color=t.track, corner_radius=3)
-            bar_bg.pack(side="left", padx=(0, 8), pady=8)
-            bar_bg.pack_propagate(False)
-
-            fill_w = max(2, int(80 * score_pct / 100))
-            bar_fill = ctk.CTkFrame(bar_bg, height=6, width=fill_w,
-                                     fg_color=score_color, corner_radius=3)
-            bar_fill.pack(side="left")
-
-            # Best badge for first one (empty placeholder keeps columns aligned)
-            ctk.CTkLabel(
-                row, text="mejor" if i == 0 else "", width=40,
-                font=ctk.CTkFont(family=FONT_UI, size=9),
-                text_color=t.bg_deep,
-                fg_color=t.accent_dim if i == 0 else "transparent",
-                corner_radius=3,
-            ).pack(side="left", padx=(0, 4))
-
-            # Language variant + release name, so e.g. Latino/Espana can be told apart
-            ctk.CTkLabel(
-                row, text=_language_label(sub.language), width=70, anchor="w",
-                font=ctk.CTkFont(family=FONT_UI, size=10, weight="bold"),
-                text_color=t.text_mid,
-            ).pack(side="left", padx=(4, 4))
-
-            release = getattr(sub, "release_info", None) or ""
-            if isinstance(release, (list, tuple)):
-                release = release[0] if release else ""
-            ctk.CTkLabel(
-                row, text=str(release)[:70], anchor="w",
+            more = ctk.CTkButton(
+                group, text=f"Mostrar {hidden} mas", command=show_more,
+                width=110, height=20,
                 font=ctk.CTkFont(family=FONT_UI, size=10),
-                text_color=t.text_dim,
-            ).pack(side="left", fill="x", expand=True)
+                fg_color="transparent", hover_color=t.bg_card_hover,
+                text_color=t.accent, corner_radius=4,
+            )
+            more.pack(anchor="w", padx=34, pady=(2, 0))
 
         # Small padding at bottom
-        ctk.CTkFrame(group, height=4, fg_color="transparent").pack()
+        tkinter.Frame(group, height=4, bg=t.bg_card).pack()
+
+    def _build_option(self, parent, t: Theme, var, i, sub, score, provider):
+        # Plain tkinter: a CustomTkinter widget is a canvas redrawn on every
+        # layout change, and dozens of rows of them froze the dialog
+        bg = t.bg_card
+        row = tkinter.Frame(parent, bg=bg)
+        row.pack(fill="x", padx=8, pady=1)
+        select = lambda _e=None: var.set(i)  # noqa: E731
+
+        tkinter.Radiobutton(
+            row, variable=var, value=i, bg=bg, activebackground=bg,
+            selectcolor=t.bg_input, fg=t.accent, highlightthickness=0, bd=0,
+        ).pack(side="left", padx=(4, 6))
+
+        score_pct = max(0, min(100, int(score)))  # already a 0-100 match percentage
+        score_color = t.green if score_pct > 70 else t.amber if score_pct > 40 else t.red
+        release = getattr(sub, "release_info", None) or ""
+        if isinstance(release, (list, tuple)):
+            release = release[0] if release else ""
+
+        cells = [
+            (PROVIDER_INFO.get(provider, (provider,))[0], 16, (FONT_MONO, 10, "bold"), t.accent, "w"),
+            (f"{score_pct}%", 4, (FONT_MONO, 9), score_color, "e"),
+        ]
+        for text, width, font, color, anchor in cells:
+            lbl = tkinter.Label(row, text=text, width=width, anchor=anchor, font=font, fg=color, bg=bg)
+            lbl.pack(side="left", padx=(0, 6))
+            lbl.bind("<Button-1>", select)
+
+        bar = tkinter.Canvas(row, width=80, height=6, bg=bg, highlightthickness=0)
+        bar.pack(side="left", padx=(0, 8), pady=8)
+        bar.create_rectangle(0, 0, 80, 6, fill=t.track, outline="")
+        bar.create_rectangle(0, 0, max(2, int(80 * score_pct / 100)), 6,
+                             fill=score_color, outline="")
+
+        # Best badge for first one (blank otherwise keeps columns aligned)
+        tkinter.Label(
+            row, text="mejor" if i == 0 else "", width=6, font=(FONT_UI, 8),
+            fg=t.bg_deep, bg=t.accent_dim if i == 0 else bg,
+        ).pack(side="left", padx=(0, 6))
+
+        # Language variant + release name, so e.g. Latino/Espana can be told apart
+        cells = [
+            (_language_label(sub.language), 10, (FONT_UI, 9, "bold"), t.text_mid, False),
+            (str(release)[:70], 0, (FONT_UI, 9), t.text_dim, True),
+        ]
+        for text, width, font, color, expand in cells:
+            lbl = tkinter.Label(row, text=text, width=width, anchor="w", font=font, fg=color, bg=bg)
+            lbl.pack(side="left", fill="x" if expand else None, expand=expand, padx=(0, 4))
+            lbl.bind("<Button-1>", select)
 
     def _confirm(self):
         selections = {}
@@ -205,6 +253,15 @@ class SubtitlePicker(ctk.CTkToplevel):
                 selections[filepath] = subs[idx][0]  # subtitle object
                 fallbacks[filepath] = subs  # all alternatives for fallback
 
+        self._close()
         if self._on_confirm:
             self._on_confirm(selections, fallbacks)
+
+    def _close(self):
+        """Destroy without the scrollable frame redrawing its scrollbar for
+        every child that goes away (quadratic, froze the app for ~30 s)."""
+        self._pending = []
+        self.withdraw()
+        self._scroll.unbind("<Configure>")
+        self._scroll._parent_canvas.configure(yscrollcommand="")
         self.destroy()

@@ -13,7 +13,8 @@ from .anime import refine_anime
 from .logger import log
 from .metadata import fix_country_title, refine_ids
 from .providers import register_custom_providers
-from .sync import sync_to_embedded
+from .constants import find_subtitles
+from .sync import IN_SYNC, SYNCED, resync, sync_subtitle
 
 register_custom_providers()
 
@@ -37,7 +38,8 @@ class SubtitleDownloader:
     """Handles subtitle search and download in a background thread."""
 
     def __init__(self, lang_codes=None, auto_rename=True,
-                 providers=None, provider_configs=None, auto_sync=True):
+                 providers=None, provider_configs=None, auto_sync=True,
+                 audio_sync=True):
         if lang_codes is None:
             lang_codes = ["spa"]
         self.languages = set()
@@ -48,6 +50,7 @@ class SubtitleDownloader:
         self.lang_codes = list(lang_codes)
         self.auto_rename = auto_rename
         self.auto_sync = auto_sync
+        self.audio_sync = audio_sync
         self.providers = providers or []
         self.provider_configs = provider_configs or {}
         self._on_progress = None
@@ -86,6 +89,48 @@ class SubtitleDownloader:
         threading.Thread(
             target=self._run_alternative, args=(file_path, skip_index), daemon=True
         ).start()
+
+    def sync_existing(self, file_paths):
+        """Re-time the subtitles already next to each video, without downloading."""
+        threading.Thread(target=self._run_sync_existing, args=(file_paths,), daemon=True).start()
+
+    def _run_sync_existing(self, file_paths):
+        total = len(file_paths)
+        synced = failed = 0
+        log.info(f"Sync of existing subtitles started: {total} files")
+        for i, path in enumerate(file_paths):
+            subs = find_subtitles(path)
+            if not subs:
+                self._status(path, "no_sub")
+                failed += 1
+            else:
+                self._status(path, "syncing")
+                results = []
+                for sub_path in subs:
+                    fmt = os.path.splitext(sub_path)[1][1:].lower()
+                    try:
+                        with open(sub_path, "rb") as f:
+                            status, content = resync(path, f.read(), fmt, self.audio_sync)
+                        if status == SYNCED:
+                            with open(sub_path, "wb") as f:
+                                f.write(content)
+                    except OSError as e:
+                        log.error(f"Could not sync {os.path.basename(sub_path)}: {e}")
+                        status = None
+                    results.append(status)
+                if SYNCED in results:
+                    synced += 1
+                    self._status(path, "synced")
+                elif IN_SYNC in results:
+                    synced += 1
+                    self._status(path, "in_sync")
+                else:
+                    failed += 1
+                    self._status(path, "sync_failed")
+            if self._on_progress:
+                self._on_progress((i + 1) / total)
+        if self._on_complete:
+            self._on_complete(synced, failed)
 
     @staticmethod
     def _friendly_error(e):
@@ -171,7 +216,8 @@ class SubtitleDownloader:
         out = os.path.splitext(path)[0] + suffix + ext
         content = sub.content
         if self.auto_sync:
-            content = sync_to_embedded(path, content, fmt) or content
+            self._status(path, "syncing")
+            content =sync_subtitle(path, content, fmt, self.audio_sync) or content
         with open(out, "wb") as f:
             f.write(content)
         return out
