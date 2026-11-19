@@ -6,7 +6,7 @@ import subprocess
 import urllib.request
 import json
 
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 REPO = "Hyzokaaa/SubHunter"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases/latest"
