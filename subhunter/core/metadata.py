@@ -57,7 +57,20 @@ def refine_ids(video):
             if meta:
                 video.imdb_id = meta.get("imdb_id") or meta.get("id")
         elif isinstance(video, Episode) and video.series and not video.series_imdb_id:
-            meta = _pick(_search("series", video.series), video.series, video.year)
+            meta = None
+            # Fansub names glue a subtitle onto the series ("Clevatess The King
+            # of Devil Beasts"): drop trailing words until a series matches
+            words = video.series.split()
+            for n in range(len(words), 0, -1):
+                title = " ".join(words[:n])
+                if len(_norm(title)) < 4:
+                    break
+                meta = _pick(_search("series", title), title, video.year)
+                if meta:
+                    if n < len(words):
+                        logger.info("Series %r matched as %r", video.series, title)
+                        video.series = title
+                    break
             if meta:
                 video.series_imdb_id = meta.get("imdb_id") or meta.get("id")
                 if not video.series_tvdb_id:
