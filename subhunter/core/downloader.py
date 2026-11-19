@@ -11,7 +11,7 @@ from subzero.language import Language
 
 from .anime import refine_anime
 from .logger import log
-from .metadata import fix_country_title, refine_ids
+from .metadata import fix_country_title, normalize_episode_name, refine_ids
 from .providers import register_custom_providers
 from .constants import find_subtitles
 from .sync import IN_SYNC, SYNCED, resync, sync_subtitle
@@ -172,7 +172,15 @@ class SubtitleDownloader:
         return pool
 
     def _scan(self, path):
-        video = scan_video(path, hints={}, providers=self.providers)
+        guess_name = normalize_episode_name(os.path.basename(path))
+        if guess_name:
+            # Parse the rewritten name alone (with the folder, guessit would
+            # take the series from the folder name), but hash the real file
+            video = scan_video(guess_name, hints={},
+                               providers=self.providers, dont_use_actual_file=True,
+                               hash_from=path)
+        else:
+            video = scan_video(path, hints={}, providers=self.providers)
         fix_country_title(video)
         refine_ids(video)
         refine_anime(video)

@@ -71,6 +71,22 @@ def refine_ids(video):
         logger.warning("Could not look up ids for %r: %s", video, e)
 
 
+_SEASON_EPISODE_PREFIX = re.compile(r"^[Ss](\d{1,2})[ ._\-]+[Ee]?(\d{1,3})[ ._\-]+(.+)$")
+
+
+def normalize_episode_name(filename):
+    """Rewrite names guessit misreads, or return None.
+
+    "S2_01_Clevatess_The_King.mkv" is read as series "01 Clevatess The King",
+    episode 1 for every file; "S02E01_Clevatess_The_King.mkv" parses right.
+    """
+    m = _SEASON_EPISODE_PREFIX.match(filename)
+    if not m:
+        return None
+    season, episode, rest = m.groups()
+    return f"S{int(season):02d}E{int(episode):02d}_{rest}"
+
+
 def fix_country_title(video):
     """guessit reads "The.Last.of.Us" as title "The Last of" + country US.
 
