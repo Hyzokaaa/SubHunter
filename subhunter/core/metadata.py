@@ -57,7 +57,20 @@ def refine_ids(video):
             if meta:
                 video.imdb_id = meta.get("imdb_id") or meta.get("id")
         elif isinstance(video, Episode) and video.series and not video.series_imdb_id:
-            meta = _pick(_search("series", video.series), video.series, video.year)
+            meta = None
+            # Fansub names glue a subtitle onto the series ("Clevatess The King
+            # of Devil Beasts"): drop trailing words until a series matches
+            words = video.series.split()
+            for n in range(len(words), 0, -1):
+                title = " ".join(words[:n])
+                if len(_norm(title)) < 4:
+                    break
+                meta = _pick(_search("series", title), title, video.year)
+                if meta:
+                    if n < len(words):
+                        logger.info("Series %r matched as %r", video.series, title)
+                        video.series = title
+                    break
             if meta:
                 video.series_imdb_id = meta.get("imdb_id") or meta.get("id")
                 if not video.series_tvdb_id:
@@ -69,6 +82,22 @@ def refine_ids(video):
                     getattr(video, "series_tvdb_id", None))
     except Exception as e:
         logger.warning("Could not look up ids for %r: %s", video, e)
+
+
+_SEASON_EPISODE_PREFIX = re.compile(r"^[Ss](\d{1,2})[ ._\-]+[Ee]?(\d{1,3})[ ._\-]+(.+)$")
+
+
+def normalize_episode_name(filename):
+    """Rewrite names guessit misreads, or return None.
+
+    "S2_01_Clevatess_The_King.mkv" is read as series "01 Clevatess The King",
+    episode 1 for every file; "S02E01_Clevatess_The_King.mkv" parses right.
+    """
+    m = _SEASON_EPISODE_PREFIX.match(filename)
+    if not m:
+        return None
+    season, episode, rest = m.groups()
+    return f"S{int(season):02d}E{int(episode):02d}_{rest}"
 
 
 def fix_country_title(video):
